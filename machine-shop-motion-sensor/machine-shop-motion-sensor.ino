@@ -27,6 +27,9 @@ int button_state_last[] = {1};
 int debounce[] = {0};
 const int debounce_time = 50;
 
+int durationBetweenPublishes = 5000*60;
+int lastPublish = -durationBetweenPublishes;
+
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
 
 }
@@ -55,7 +58,10 @@ void connectedLoop(PubSubClient* client) {
     if (button_state[i] != button_state_last[i] && millis() - debounce[i] > debounce_time) {
 
       if (button_state[i] == LOW && i == 0) {
-        client->publish("stat/i3/inside/machineShop/motion-sensor/motion", "There You Are.");
+        if(millis() - lastPublish > durationBetweenPublishes) {
+          client->publish("stat/i3/inside/machineShop/motion-sensor/motion", "There You Are.");
+          lastPublish = millis();
+        }
       }
 
       //If the button was pressed or released, we still need to reset the debounce timer.
