@@ -1,43 +1,29 @@
 /*
  * ESP8266 mqtt controlled 16 segment display
  *
+ * https://abzman2k.wordpress.com/2015/09/23/esp8266-led-display/
+ *
  * Version 1.1  9/23/2015  Evan Allen
  * Version 2    2017-09-11 Mark Furland
 */
 
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
+#include "mqtt-wrapper.h"
 
-const char* ssid = "i3detroit-wpa";
-const char* password = "i3detroit";
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+const char* host_name = "16-segment-display";
+const char* ssid = "i3detroit-iot";
+const char* password = "securityrisk";
 const char* mqtt_server = "10.13.0.22";
+const int mqtt_port = 1883;
 
-WiFiClient espClient;
-PubSubClient client(espClient);
-
-
-
+char buf[1024];
 char displayString[1024];
 int character = 0;
 int d = 500;
 long lastMsg = 0;
+
 //char valid[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789- ";
-
-void custom_setup() {
-}
-
-void custom_loop() {
-  if(strlen(displayString) > 16) {
-    long now = millis();
-    if (now - lastMsg > d) {
-      lastMsg = now;
-      //print next char
-      Serial.print(displayString[character]);
-      character = (character + 1) % strlen(displayString);
-    }
-  }
-}
-
 char validateChar(char toValid) {
   if((65 <= toValid && toValid <= 90) || (48 <= toValid && toValid <= 57) || toValid == 32 || toValid == 45) {
     return toValid;
@@ -46,7 +32,9 @@ char validateChar(char toValid) {
   }
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
+
+void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
+
   if(strcmp(topic, "cmnd/i3/commons/16seg/delay") == 0) {
     char buf[5];
     for(int i=0; i<length && i<sizeof(buf)/sizeof(char); ++i){
@@ -94,60 +82,42 @@ void callback(char* topic, byte* payload, unsigned int length) {
     }
     character = 16;
   }
+
 }
 
-void setup_wifi() {
-  delay(10);
-  Serial.print("CONNECTING.....");
-  // We start by connecting to a WiFi network
-
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-  }
-
-  randomSeed(micros());
+void connectSuccess(PubSubClient* client, char* ip) {
   for(int i=0; i<16-4; ++i) {
-    Serial.print(' ');
+      Serial.print(' ');
   }
-  Serial.print(WiFi.localIP());
-}
+  Serial.print(ip);
 
-void reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
-    // Attempt to connect
-    if (client.connect("16seg")) {
-      // Once connected, publish an announcement...
-      client.publish("stat/i3/commons/16seg/status", "online");
-      // ... and resubscribe
-      client.subscribe("cmnd/i3/commons/16seg/display");
-      client.subscribe("cmnd/i3/commons/16seg/delay");
-    } else {
-      // Wait 5 seconds before retrying
-      delay(5000);
-    }
-  }
+  //subscribe and shit here
+  sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
+  client->publish("tele/i3/commons/16seg/INFO2", buf);
+  client->subscribe("cmnd/i3/commons/16seg/display");
+  client->subscribe("cmnd/i3/commons/16seg/delay");
 }
 
 void setup() {
-
   Serial.begin(4800);
+  Serial.print("CONNECTING.....");
 
-  setup_wifi();
-  client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
+  setup_mqtt(connectedLoop, callback, connectSuccess, ssid, password, mqtt_server, mqtt_port, host_name, false);
+}
 
-  custom_setup();
+void connectedLoop(PubSubClient* client) {
 }
 
 void loop() {
+  loop_mqtt();
 
-  if (!client.connected()) {
-    reconnect();
+  if(strlen(displayString) > 16) {
+    long now = millis();
+    if (now - lastMsg > d) {
+      lastMsg = now;
+      //print next char
+      Serial.print(displayString[character]);
+      character = (character + 1) % strlen(displayString);
+    }
   }
-  client.loop();
-
-  custom_loop();
 }
