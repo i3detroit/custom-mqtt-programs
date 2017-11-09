@@ -22,10 +22,10 @@ const int button_pins[] = {12};
 int button_state[] = {1};
 int button_state_last[] = {-1};
 int debounce[] = {0};
-const int debounce_time = 50;
+const int debounce_time = 500;
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  if (strcmp(topic, "cmnd/i3/inside/machineShop/air-compressor/POWER") == 0) {
+  if (strcmp(topic, "cmnd/i3/inside/infrastructure/air-compressor/POWER") == 0) {
     Serial.println("Got command to power");
     if((char)payload[0] == '0' || (char)payload[1] == 'F') {
       Serial.println("off");
@@ -39,7 +39,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       digitalWrite(ON_BUTTON, 0);
     } else {
       //A query
-      client->publish("stat/i3/inside/machineShop/air-compressor/POWER", button_state_last[1] ? "OFF" : "ON");
+      client->publish("stat/i3/inside/infrastructure/air-compressor/POWER", button_state_last[1] ? "OFF" : "ON");
     }
   }
 }
@@ -47,8 +47,8 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
 void connectSuccess(PubSubClient* client, char* ip) {
   //subscribe and shit here
   sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
-  client->publish("tele/i3/inside/machineShop/air-compressor/INFO2", buf);
-  client->subscribe("cmnd/i3/inside/machineShop/air-compressor/POWER");
+  client->publish("tele/i3/inside/infrastructure/air-compressor/INFO2", buf);
+  client->subscribe("cmnd/i3/inside/infrastructure/air-compressor/POWER");
 }
 
 
@@ -71,7 +71,7 @@ void connectedLoop(PubSubClient* client) {
     if (button_state[i] != button_state_last[i] && millis() - debounce[i] > debounce_time) {
 
       if(i == 0) {
-        client->publish("stat/i3/inside/machineShop/air-compressor/POWER", button_state[i] ? "OFF" : "ON");
+        client->publish("stat/i3/inside/infrastructure/air-compressor/POWER", button_state[i] ? "OFF" : "ON");
       }
 
       //If the button was pressed or released, we still need to reset the debounce timer.
