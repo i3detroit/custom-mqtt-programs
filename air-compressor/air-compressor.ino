@@ -22,7 +22,7 @@ const int button_pins[] = {12};
 int button_state[] = {1};
 int button_state_last[] = {-1};
 int debounce[] = {0};
-const int debounce_time = 500;
+const int debounce_time = 1000;
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
   if (strcmp(topic, "cmnd/i3/inside/infrastructure/air-compressor/POWER") == 0) {
