@@ -6,8 +6,6 @@
 */
 
 #include "mqtt-wrapper.h"
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 // button pins
@@ -49,27 +47,22 @@ void lightsOff(PubSubClient* client) { // pin 5
   client->publish("cmnd/i3/inside/lights/035/POWER", "0");
 }
 void fanOn(PubSubClient* client) { // pin 0
-  client->publish("cmnd/i3/machineShop/fans/ceilingFan/POWER", "1");
+  client->publish("cmnd/i3/inside/machine-shop/ceiling-fan/POWER", "1");
 }
 void fanOff(PubSubClient* client) { // pin 2
-  client->publish("cmnd/i3/machineShop/fans/ceilingFan/POWER", "0");
+  client->publish("cmnd/i3/inside/machine-shop/ceiling-fan/POWER", "0");
 }
 
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
+  client->publish("tele/i3/inside/machine-shop/light-switches-south/online", "hi");
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {
   //subscribe and shit here
   sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
-  client->publish("tele/i3/inside/machineShop/light-switches-south/INFO2", buf);
+  client->publish("tele/i3/inside/machine-shop/light-switches-south/INFO2", buf);
+  client->subscribe("cmnd/i3/inside/machine-shop/light-switches-south/#");
 }
 
 
