@@ -62,16 +62,18 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     //is LOCKED or UNLOCKED so comparing first char is sufficient
     pcf8574.write(GLASS_DOOR_LOCK_GREEN, (char)payload[0] == 'L' ? 1 : 0);
     pcf8574.write(GLASS_DOOR_LOCK_RED, (char)payload[0] == 'L' ? 0 : 1);
-  } else if (strcmp(topic, "cmnd/i3/inside/commons/exitIndicator/shutdown-LED") == 0) {
+  } else if (strcmp(topic, "cmnd/i3/inside/commons/exit-indicator/shutdown-LED") == 0) {
     //RED or GREEN
     pcf8574.write(SHUTDOWN_GREEN, (char)payload[0] == 'G' ? 1 : 0);
     pcf8574.write(SHUTDOWN_RED,   (char)payload[0] == 'G' ? 0 : 1);
-  } else if (strcmp(topic, "stat/i3/inside/machineShop/air-compressor/POWER") == 0) {
+  } else if (strcmp(topic, "stat/i3/inside/infrastructure/air-compressor/POWER") == 0) {
     //OFF or ON
     pcf8574.write(SHUTDOWN_GREEN, (char)payload[1] == 'F' ? 1 : 0);
     pcf8574.write(SHUTDOWN_RED,   (char)payload[1] == 'F' ? 0 : 1);
-  } else if (strcmp(topic, "cmnd/i3/inside/commons/normal-doorbell") == 0) {
-    client->publish("stat/i3/inside/commons/normal-doorbell", "command");
+  } else if (strcmp(topic, "cmnd/i3/inside/commons/garage-door/lock") == 0) {
+    client->publish("stat/i3/inside/commons/garage-door/lock", button_state[1] ? "UNLOCKED" : "LOCKED");
+  } else if (strcmp(topic, "cmnd/i3/inside/commons/normal-doorbell/press") == 0) {
+    client->publish("stat/i3/inside/commons/normal-doorbell/press", "command");
     digitalWrite(NORMAL_DOORBELL_OUT, 1);
     delay(750);
     digitalWrite(NORMAL_DOORBELL_OUT, 0);
@@ -86,11 +88,12 @@ void connectSuccess(PubSubClient* client, char* ip) {
   client->subscribe("stat/i3/classroom/glassDoor/lock");
   client->publish("cmnd/i3/classroom/glassDoor/lock", "query");
 
-  client->subscribe("cmnd/i3/inside/commons/exitIndicator/shutdown-LED");
-  client->subscribe("cmnd/i3/inside/commons/normal-doorbell");
+  client->subscribe("cmnd/i3/inside/commons/exit-indicator/shutdown-LED");
+  client->subscribe("cmnd/i3/inside/commons/normal-doorbell/press");
+  client->subscribe("cmnd/i3/inside/commons/garage-door/lock");
 
-  client->subscribe("stat/i3/inside/machineShop/air-compressor/POWER");
-  client->publish("cmnd/i3/inside/machineShop/air-compressor/POWER", "query");
+  client->subscribe("stat/i3/inside/infrastructure/air-compressor/POWER");
+  client->publish("cmnd/i3/inside/infrastructure/air-compressor/POWER", "query");
 }
 
 
@@ -119,13 +122,13 @@ void connectedLoop(PubSubClient* client) {
         client->publish("cmnd/i3/automation/shutdown", "DOWNSHUT");
       } else if(i == 1) {
         //garage door
-        client->publish("stat/i3/inside/commons/garageDoor", button_state[i] ? "UNLOCKED" : "LOCKED");
+        client->publish("stat/i3/inside/commons/garage-door/lock", button_state[i] ? "UNLOCKED" : "LOCKED");
         pcf8574.write(button_state[i] ? GARAGE_RED : GARAGE_GREEN, HIGH);
         pcf8574.write(!button_state[i] ? GARAGE_RED : GARAGE_GREEN, LOW);
       } else if(i == 2) {
         //normal doorbell
         if (button_state[i] == LOW) {
-          client->publish("stat/i3/inside/commons/normal-doorbell", "ding\a");
+          client->publish("stat/i3/inside/commons/normal-doorbell/press", "ding\a");
         }
         digitalWrite(NORMAL_DOORBELL_OUT, !button_state[i]);
       }
