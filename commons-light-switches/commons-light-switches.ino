@@ -10,12 +10,10 @@
 #include <PubSubClient.h>
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
-// button pins
-const int button_pins[] = { 13, 12, 16, 14, 5, 2, 4 };
+const int button_pins[] = { 13, 14, 12, 5, 16, 2 };
 const int numButtons = sizeof(button_pins)/sizeof(button_pins[0]);
 
-//This is an array of function pointers. It relates to the button on the same pin in the button_pins array.
-void (*button_functions[])(PubSubClient* client) = {&eastOn, &eastOff, &centerOn, &centerOff, &westOn, &westOff, &allOff};
+void (*button_functions[])(PubSubClient* client) = {&eastOn, &eastOff, &centerOn, &centerOff, &westOn, &westOff};
 
 char buf[1024];
 //Debounce setup
@@ -65,11 +63,6 @@ void westOff(PubSubClient* client) {
   client->publish("cmnd/i3/inside/lights/012/POWER", "0");
   client->publish("cmnd/i3/inside/lights/013/POWER", "0");
   client->publish("cmnd/i3/inside/lights/014/POWER", "0");
-}
-void allOff(PubSubClient* client) {
-  eastOff(client);
-  centerOff(client);
-  westOff(client);
 }
 
 
