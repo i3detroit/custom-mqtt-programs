@@ -29,11 +29,19 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     Serial.println("Got command to power");
     if((char)payload[0] == '0' || (char)payload[1] == 'F') {
       Serial.println("off");
+      if(button_state_last[1]) {
+        //If attempt to set to current state, just reply with current state
+        client->publish("stat/i3/inside/infrastructure/air-compressor/POWER", button_state_last[1] ? "OFF" : "ON");
+      }
       digitalWrite(OFF_BUTTON, 1);
       delay(750);
       digitalWrite(OFF_BUTTON, 0);
     } else if((char)payload[0] == '1' || (char)payload[1] == 'N') {
       Serial.println("on");
+      if(!button_state_last[1]) {
+        //If attempt to set to current state, just reply with current state
+        client->publish("stat/i3/inside/infrastructure/air-compressor/POWER", button_state_last[1] ? "OFF" : "ON");
+      }
       digitalWrite(ON_BUTTON, 1);
       delay(750);
       digitalWrite(ON_BUTTON, 0);
