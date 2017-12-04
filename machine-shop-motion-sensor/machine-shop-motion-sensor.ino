@@ -27,8 +27,10 @@ int button_state_last[] = {1};
 int debounce[] = {0};
 const int debounce_time = 50;
 
-int durationBetweenPublishes = 5000*60;
+int durationBetweenPublishes = 1000*60;
+int motionCooldown = 1000*60;
 int lastPublish = -durationBetweenPublishes;
+int lastMotion = millis();
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
 
@@ -54,12 +56,19 @@ void connectedLoop(PubSubClient* client) {
   //Foreach pin run debouncing, and if it's a real press call the function
   for(int i=0; i < numButtons; ++i) {
     button_state[i] = digitalRead(button_pins[i]);//Read current state
-    //If the current state does not equal the last state, AND it's been long enough since the last change
+    //If the state has changed 
     if (button_state[i] != button_state_last[i] && millis() - debounce[i] > debounce_time) {
-
-      if (button_state[i] == LOW && i == 0) {
-        if(millis() - lastPublish > durationBetweenPublishes) {
-          client->publish("stat/i3/inside/machineShop/motion-sensor/motion", "There You Are.");
+      // AND if it's been long enough since the last state change
+      if(millis() - lastPublish > durationBetweenPublishes && i == 0) {
+        //If there's motion
+        if (button_state[i] == LOW) {
+          client->publish("stat/i3/inside/machineShop/motion-sensor/motion", "ON");
+          lastPublish = millis();
+          lastMotion = lastPublish;
+        }
+        //If there's no motion AND it's been long enough since motion was last detected
+        else if (button_state[i] == HIGH && millis() - lastMotion > motionCooldown) {
+          client->publish("stat/i3/inside/machineShop/motion-sensor/motion", "OFF");
           lastPublish = millis();
         }
       }
