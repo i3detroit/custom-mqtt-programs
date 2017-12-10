@@ -1,0 +1,266 @@
+;**********************************************************************************
+
+;The protocol for J1708 communication requires a packet that is no more
+;than 21 characters long.  The first character of a packet is the MID
+;or Message Identification Character.  The last character is the checksum
+;which is simply the two's complement of the 8 bit sum of the MID and all
+;the data characters.  All characters in the packet added together give 0.
+
+;Our structure adds the following detail to all packets directed to a sign:
+;
+; Character 1	MID
+; Character 2	Always 7F hex
+; Character 3	Number of characters in packet including MID and checksum.
+;		This will always be 8-21 except in the case of a special
+;		transmission which resets the sign or queries the sign to
+;		send its status, in which case the character count is 7.
+; Character 4   Transmission ID# 0-41 hex groups associated packets together
+;		so that they can be assembled into one message.  The
+;		transmission ID# is a normally a six bit dummy value 0-3F hex
+;		that should count up by one every time a new transmission is
+;		sent.  Exceptions are transmission ID# 40 hex which is
+;		reserved to query the sign to send its status, and 41 hex
+;		which is reserved to reset the sign in preparation to receive
+;		a new message immediately, even if it is still busy.  The
+;		reset function requires a brief interval to prepare the sign
+;		to resume operations, so a short delay on the order of 100
+;		msec is recommended before attempting to send further
+;		messages to the sign.
+; Character 5	Total number of packets N, 1-6 in this transmission is
+;		encoded in the high 4 bits 7654.
+; 		Packet position in transmission of this packet, 0 to <N-1>
+;		is encoded in the low 4 bits 3210.
+; Data		1-14 characters for normal transmissions, but absent in
+;		the case of special Transmission ID# 40 hex which is
+;		a query for the sign to send its status, or 41 hex which
+;		forces an immediate reset.
+; Zero byte	Always 00 hex
+; Checksum	Two's complement of the sum of all preceding characters.
+
+;The MID to be carried by messages for the sign must match the DIP switch
+;setting on the back of the sign.  Note that SAE J1708 specifically reserves
+;many ID numbers for certain classes of devices and compliance categories.
+;Responses sent by the sign will carry the MID which is the same as the
+;one set by the DIP switches except that the LSB is reversed.  If the DIP
+;switch is confined to even values, then the sign will respond with an MID
+;which is one higher than the DIP switch setting.  DIP switch 1, on the
+;right end, is the least significant bit.  An open switch is a logic one.
+;Use of DIP switch settings 0, 1, 7E hex, and 7F hex is not recommended.
+
+;Packets may be sent redundantly if desired.  Once all packets of a specific
+;transmission number have been received, their data characters are spliced
+;together to form the body of the message which is then acted upon.  If
+;redundant transmission is used, the transmission number must remain
+;constant while all packets are sent.  If the data carried by a transmission
+;requires multiple packets to carry it, then all the packets except the
+;last one must carry the maximum allowable 14 bytes of data.
+
+;The data body of a transmission can include any of the following commands.
+;It should contain only printable characters and spaces, with the exception
+;of the codes from 80-FF hex that are used by the ~G graphics encoding
+;sequence described farther down.  Each command starts with a caret (5E hex)
+;followed by an operation code letter.  A typical command series will
+;bring some text in, wait briefly, then take it out.  Loops can be setup
+;to flash or flip-flop screens.  When the command sequence is through being
+;interpreted, the LED screen will retain its final condition indefinitely,
+;so you must program the message exits into the command list, or else plan
+;to perform them in a separate transmission after a short time.
+;
+;	^IItext		Shows "text" immediately.
+;	^IAtext		Shows "text" coming in from above
+;	^IBtext		Shows "text" coming in from below
+;
+;			The ^I commands automatically center the "text"
+;			messages on screen.  If a message is too long to
+;			fit on the screen, the command will be converted
+;			automatically to an S type stream command.
+;			These commands can be used as "Out"
+;			functions by specifying no text or text
+;			containing only blanks.
+;
+;	^Stext		Streams "text" right to left and off screen once.
+;			No action occurs if "text" is null.
+;
+;	All commands which display text will accept the following special
+;	embedded sequences that begin with a tilde (7E hex):
+;
+;	  ~B	Switch to bold font for subsequent text characters
+;	  ~b	Same as ~B but uses three blank columns between characters
+;	  ~C	Switch to compact font for subsequent text characters
+;	  ~c	Same as ~C but uses two blank columns between characters
+;	  ~D	Switch to default 5x7 font for subsequent text characters
+;	  ~d	Same as ~D but uses two blank columns between characters
+;	  ~Gx..	Graphic patterns for successive columns of LEDs are carried
+;		by a series of characters x, each of which carries a 7 bit
+;		column pattern in bits 6543210 with bit 0 being topmost,
+;		and a 1 in bit 7.  The graphic mode terminates and text
+;		mode resumes upon the first character with bit 7 clear.
+;		Note that text characters always bear one (2 for bold font)
+;		blank column on the right but none on the left.  If an
+;		embedded graphic is followed by more text, you should
+;		encode an empty column at the end of the graphic so that
+;		it doesn't touch the following text.
+;
+;	^Ln	Loop through subsequent code up to ^E for n repetitions.
+;		The rep count n can be one or two ASCII decimal digits
+;		expressing values from 1-99.
+;
+;	^E	End of loop.  Sends interpreter back to previous ^L
+;		to repeat commands until rep count is complete.  Nesting
+;		of loop structures is not supported.
+;
+;	^F	End of loop forever.  Sends interpreter back to previous
+;		^L in infinite loop regardless of specified ^L loop count.
+;		In this case, a reset transmission with ID 41 hex is required
+;		to stop the running program and prepare to receive another
+;		program.
+;
+;	^Pn	Sets Pace of display refresh and motion.  The parameter n
+;		is one or two ASCII decimal digits expressing a range 1-20.
+;		The default after reset is Pace 4.
+;
+;	^=n	Sets the number of LED refresh scans performed between
+;		image shifts during horizontal motions like streaming.
+;		The parameter n is a single decimal ASCII digit 1-6.  The
+;		default after reset is 1 which results in a very sharp
+;		and crisp looking image on the LEDs.  It also will produce
+;		a perceptible flicker at very low ^P pace settings.  At
+;		the default ^=1 setting with the very sharp image it is
+;		impossible to achieve a very slow shifting speed without
+;		flicker.  Values of the ^= parameter greater than 1 will
+;		perform multiple display scans for each shift.  This will
+;		allow a high ^P pace to be chosen for low flicker, while
+;		holding down the speed of travel for streaming.  There is
+;		a side effect though, which is that the letters no longer
+;		look as crisp as they do with the ^=1 setting.  Optimum
+;		appearance of the sign on video will result from using
+;		^P19 in combination with an ^=4.  This will refresh at
+;		at 120 frames/second and shift at 30 columns/second.
+;		This will minimize beating artifacts against the video
+;		camera's 60 frame per second rate.
+;
+;		The table below illustrates the interaction between the
+;		^P and ^= settings.  The =1 column is the refresh frame
+;		rate regardless of the ^= setting.  It affects the amount
+;		of perceived flicker.  The values in the =n columns show
+;		the rates of travel that result from various ^= settings
+;		at the given ^P pace setting.
+;
+;               PACE     =1     =2      =3      =4      =5      =6
+;                 20	125	62.5	41.7	31.3	25	20.8
+;                 19	120	60	40	30	24	20
+;                 18	115	57.5	38.3	28.8	23
+;                 17	110	55	36.7	27.5	22
+;                 16	105	52.5	35	26.3	21
+;                 15	100	50	33.3	25	20
+;                 14	 95	47.5	31.7	23.8
+;                 13	 90	45	30	22.5
+;                 12	 85	42.5	28.3	21.3
+;                 11	 80	40	26.7	20
+;                 10	 75	37.5	25
+;                  9	 70	35	23.3
+;                  8	 65	32.5	21.7
+;                  7	 60	30	20
+;                  6	 55	27.5
+;                  5	 50	25
+;                  4	 45	22.5
+;                  3	 40	20
+;                  2	 35
+;                  1	 30
+;
+;	^R	Return to beginning of memory.  If this instruction is
+;		placed at the end of the program, the entire program
+;		will repeat forever.  In this case, a reset transmission
+;		with ID 41 hex is required to stop the running program and
+;		prepare to receive another program.
+;
+;	^Wn	Waits n tenths of a second.  The delay interval can be
+;		one or two ASCII decimal digits expressing delays from
+;		0.1 to 9.9 seconds.  Longer delays can be had by using
+;		multiple ^W commands or by putting an ^W command in a
+;		loop.
+;
+;	^XS	Drives the Sink transistor connected to the AUX terminal
+;		so that the output is pulled to ground.  This can be used
+;		to activate a chime or LED flasher that will help to
+;		alert people.  The output is a TIP120 darlington without
+;		a heatsink.  Device dissipation should not exceed one watt.
+;		This will allow a continuous current of one ampere if
+;		the load will allow the transistor to pull the AUX pin
+;		all the way down to its saturation voltage.  The AUX output
+;		is pulled up to +5 with a 10K ohm resistor.  It may be
+;		pulled up higher to the vehicle battery voltage of 30
+;		volts or less with no harm.  The state of the AUX pin
+;		is reported by the special query transmission report.
+;		This allows the sink transistor, and possibly its load
+;		to be tested.  It also allows the AUX terminal to be
+;		used as a generic digital input line.
+;
+;	^XF	Causes the sink transistor connected to the AUX terminal
+;		to turn off, allowing the AUX terminal to Float up to
+;		+5 or higher if a load is connected to the vehicle battery
+;		voltage.  This is the default state after reset.
+;
+;	^XDn	Adjust autodimming threshold to value n which is a 1-3
+;		digit decimal ASCII number from 1-255.  The default value
+;		is 16.  This value is not affected by a reset command.
+;
+;	^XBn	Force brightness level n in range 0-31.  Values 2-31 are
+;		accepted as actual brightness levels to be forced.  Values
+;		above 31 are converted to 31.  Values 0 and 1 are accepted
+;		as commands to disable forced brightness level mode and
+;		to return to normal sensor based brightness level mode.
+;		This mode is not affected by a reset command.
+;
+;	^Yn	Displays test pattern n.  The pattern number n can be
+;		one or two decimal ASCII digits specifying a value 0-17.
+;
+;		 0	blank
+;		 1	row 1 lit
+;		 2	row 2 lit
+;		 3	row 3 lit
+;		 4	row 4 lit
+;		 5	row 5 lit
+;		 6	row 6 lit
+;		 7	row 7 lit
+;		 8	columns 1,5,9... lit
+;		 9	columns 2,6,10... lit
+;		10	columns	3,7,11... lit
+;		11	columns 4,8,12... lit
+;		12	left half lit
+;		13	right half lit
+;		14	checkerboard 1
+;		15	checkerboard 2
+;		16	current brightness level 2-31
+;		17	all lit
+;
+;
+;
+;The special transmission ID# 40 hex queries the sign for its status.  The
+;sign will reply with a message that indicates its current condition.
+;
+;Character 1	MID = DIP switch MID XOR 1
+;Character 2	Always 7F hex
+;Character 3	Always 8
+;Character 4	Transmission ID# of the last transmission which was received
+;		successfully in its entirety, excepting query ID 40 hex.
+;Character 5	R or B for Ready or Busy.  When a transmission is received
+;		which tells the sign to do some display work, the sign
+;		will become Busy until that command list is completed.  You
+;		must not attempt to send another transmission to the sign
+;		when it is Busy.  It does not have enough memory to be able
+;		to accept another transmission until it is done executing
+;		the prior commands and can free up the memory that they
+;		occupied.  In order to implement reliable flow control,
+;		you must either query the sign to verify that it is Ready,
+;		or else implement conservative minimum delays externally
+;		that will be sufficient to assure that the sign has
+;		finished its work before giving it more commands.
+;Character 6	S or F for Sink or Float as regards the voltage on the
+;		AUX terminal of the sign.  This is an HCT type CMOS
+;		input protected with a 47K ohm resistor and a 4.3 volt
+;		zener diode.  Logic 0 (S) is guaranteed at voltages less
+;		than 0.8 volts.  Logic 1 (F) is guaranteed at voltages
+;		greater than 2.0 volts.
+;Character 7	Always 00H
+;Checksum	Two's complement of the sum of all preceding characters.
