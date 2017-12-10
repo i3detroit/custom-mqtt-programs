@@ -36,6 +36,9 @@
 #define NORMAL_DOORBELL 2
 #define NORMAL_DOORBELL_OUT 14
 
+unsigned long ledRefresh = 0UL;
+unsigned long ledRefreshInterval = 60000UL;
+
 char buf[1024];
 
 TwoWire testWire;
@@ -142,4 +145,8 @@ void connectedLoop(PubSubClient* client) {
 
 void loop() {
   loop_mqtt();
+  if( (long)( millis() - ledRefresh ) >= 0) {
+    ledRefresh = millis() + ledRefreshInterval;
+    pcf8574.read8();
+  }
 }
