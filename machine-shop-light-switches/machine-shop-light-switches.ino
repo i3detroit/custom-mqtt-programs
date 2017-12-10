@@ -8,6 +8,14 @@
 #include "mqtt-wrapper.h"
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+#ifndef NAME
+#define NAME "NEW-machine-shop-lightswitch"
+#endif
+
+#ifndef TOPIC
+#define TOPIC "i3/program-me/NEW-machine-shop-lightswitch"
+#endif
+
 // button pins
 const int button_pins[] = { 4, 5, 0, 2 };
 const int numButtons = sizeof(button_pins)/sizeof(button_pins[0]);
@@ -16,13 +24,16 @@ const int numButtons = sizeof(button_pins)/sizeof(button_pins[0]);
 void (*button_functions[])(PubSubClient* client) = {&lightsOn, &lightsOff, &fanOn, &fanOff};
 
 char buf[1024];
+char topicBuf[1024];
+
 //Debounce setup
 int button_state[] = {1,1,1,1,1,1,1};
 int button_state_last[] = {1,1,1,1,1,1,1};
-int debounce[] = {0,0,0,0,0,0,0};
-const int debounce_time = 50;
+unsigned long debounce[] = {0,0,0,0,0,0,0};
+unsigned long debounce_time = 50;
 
-const char* host_name = "machine-shop-light-switches-south";
+const char* host_name = NAME;
+const char* topic = TOPIC;
 const char* ssid = "i3detroit-wpa";
 const char* password = "i3detroit";
 const char* mqtt_server = "10.13.0.22";
@@ -55,14 +66,17 @@ void fanOff(PubSubClient* client) { // pin 2
 
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  client->publish("tele/i3/inside/machine-shop/light-switches-south/online", "hi");
+  sprintf(topicBuf, "tele/%s/online", topic);
+  client->publish(topicBuf, "hi");
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {
   //subscribe and shit here
   sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
-  client->publish("tele/i3/inside/machine-shop/light-switches-south/INFO2", buf);
-  client->subscribe("cmnd/i3/inside/machine-shop/light-switches-south/#");
+  sprintf(topicBuf, "stat/%s/INFO2", topic);
+  client->publish(topicBuf, buf);
+  sprintf(topicBuf, "cmnd/%s/#", topic);
+  client->subscribe(topicBuf);
 }
 
 
