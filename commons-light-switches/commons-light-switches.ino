@@ -35,6 +35,7 @@ void eastOn(PubSubClient* client) {
   client->publish("cmnd/i3/inside/lights/004/POWER", "1");
 }
 void centerOn(PubSubClient* client) {
+  client->publish("cmnd/i3/inside/lights/005/POWER", "1");
   client->publish("cmnd/i3/inside/lights/006/POWER", "1");
   client->publish("cmnd/i3/inside/lights/007/POWER", "1");
   client->publish("cmnd/i3/inside/lights/008/POWER", "1");
@@ -53,6 +54,7 @@ void eastOff(PubSubClient* client) {
   client->publish("cmnd/i3/inside/lights/004/POWER", "0");
 }
 void centerOff(PubSubClient* client) {
+  client->publish("cmnd/i3/inside/lights/005/POWER", "0");
   client->publish("cmnd/i3/inside/lights/006/POWER", "0");
   client->publish("cmnd/i3/inside/lights/007/POWER", "0");
   client->publish("cmnd/i3/inside/lights/008/POWER", "0");

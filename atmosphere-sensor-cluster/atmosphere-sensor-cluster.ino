@@ -26,6 +26,7 @@
 
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
+#include <Adafruit_BMP280.h>
 #include <BH1750.h>
 #include "DHT.h"
 
@@ -35,7 +36,7 @@ char buf[1024];
 char topicBuf[1024];
 char floatBuf[8];
 
-Adafruit_BMP085 bmp;
+Adafruit_BMP280 bmp;
 BH1750 lightMeter(0x23);
 DHT dht(12, DHT22);
 
@@ -81,10 +82,10 @@ void setup() {
   mqtt_options.debug_print = true;
   setup_mqtt(&mqtt_options);
 
-  Wire.begin (4, 5);
-  if (!bmp.begin())
-  {
-    Serial.println("Could not find BMP180 or BMP085 sensor at 0x77");
+  Wire.begin(4, 5);
+
+  if (!bmp.begin(0x76)) {
+    Serial.println("Could not find BMP 280 sensor");
     while (1) {}
   }
   lightMeter.begin(BH1750_CONTINUOUS_HIGH_RES_MODE);
@@ -95,11 +96,13 @@ void connectedLoop(PubSubClient* client) {
   if( (long)( millis() - status ) >= 0) {
     status = millis() + statusInterval;
 
-    sprintf(topicBuf, "tele/%s/bmp180", topic);
+    sprintf(topicBuf, "tele/%s/bmp280", topic);
     ftoa(floatBuf, bmp.readTemperature(), 2);
-    sprintf(buf, "{\"Temperature\":%s, \"Pressure\"%d\"}", floatBuf, bmp.readPressure());
+    sprintf(buf, "{\"Temperature\":%s, \"Pressure\":", floatBuf);
+    ftoa(floatBuf, bmp.readPressure(), 2);
+    sprintf(buf + strlen(buf), "%s}", floatBuf);
     client->publish(topicBuf, buf);
-    Serial.println("bmp180");
+    Serial.println("bmp280");
     Serial.println(buf);
 
     sprintf(topicBuf, "tele/%s/lux", topic);
@@ -109,9 +112,9 @@ void connectedLoop(PubSubClient* client) {
 
     sprintf(topicBuf, "tele/%s/dht22", topic);
     ftoa(floatBuf, dht.readTemperature(), 2);
-    sprintf(buf, "{\"Temperature\":%s, \"Humidity\"", floatBuf);
+    sprintf(buf, "{\"Temperature:%s, \"Humidity\":", floatBuf);
     ftoa(floatBuf, dht.readHumidity(), 2);
-    sprintf(buf + strlen(buf), "%s\"}", floatBuf);
+    sprintf(buf + strlen(buf), "%s}", floatBuf);
     Serial.println("dht22");
     Serial.println(buf);
     client->publish(topicBuf, buf);
