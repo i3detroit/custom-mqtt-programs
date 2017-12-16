@@ -1,16 +1,20 @@
 #include "mqtt-wrapper.h"
 
-#define LED_PIN 12
-#define ON_PIN 1
-#define OFF_PIN 0
-#define TOGGLE_PIN 2
+#define ON_PIN 0
+#define OFF_PIN 2
+#define TOGGLE_PIN 4
+#define LED_PIN 5
 
 #ifndef NAME
-#define NAME "NEW-machine-shop-lightswitch"
+#define NAME "NEW-single-topic-button"
 #endif
 
 #ifndef TOPIC
-#define TOPIC "i3/program-me/NEW-machine-shop-lightswitch"
+#define TOPIC "i3/program-me/NEW-single-topic-button"
+#endif
+
+#ifndef CONTROL_TOPIC
+#define CONTROL_TOPIC "i3/program-me/not-a-topic"
 #endif
 
 const char* host_name = NAME;
@@ -62,6 +66,8 @@ void connectSuccess(PubSubClient* client, char* ip) {
   //Subscribe to the result topic from the thing we control
   sprintf(topicBuf, "stat/%s/POWER", controlTopic);
   client->subscribe(topicBuf);
+  sprintf(topicBuf, "cmnd/%s/POWER", controlTopic);
+  client->publish(topicBuf, "");
 }
 
 void setup() {
