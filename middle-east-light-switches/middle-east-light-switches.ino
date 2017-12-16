@@ -10,6 +10,14 @@
 #include <PubSubClient.h>
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+#ifndef NAME
+#define NAME "NEW-middle-east-light-switches"
+#endif
+
+#ifndef TOPIC
+#define TOPIC "i3/program-me/NEW-middle-east-light-switches"
+#endif
+
 // button pins
 const int button_pins[] = { 4, 5, 0, 2 };
 const int numButtons = sizeof(button_pins)/sizeof(button_pins[0]);
@@ -18,13 +26,16 @@ const int numButtons = sizeof(button_pins)/sizeof(button_pins[0]);
 void (*button_functions[])(PubSubClient* client) = {&westOn, &westOff, &eastOn, &eastOff};
 
 char buf[1024];
+char topicBuf[1024];
+
 //Debounce setup
 int button_state[] = {1,1,1,1,1,1,1};
 int button_state_last[] = {1,1,1,1,1,1,1};
 int debounce[] = {0,0,0,0,0,0,0};
 const int debounce_time = 50;
 
-const char* host_name = "bike-zone-shop-light-switches";
+const char* host_name = NAME;
+const char* fullTopic = TOPIC;
 const char* ssid = "i3detroit-wpa";
 const char* password = "i3detroit";
 const char* mqtt_server = "10.13.0.22";
@@ -75,8 +86,9 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
 
 void connectSuccess(PubSubClient* client, char* ip) {
   //subscribe and shit here
+  sprintf(topicBuf, "tele/%s/INFO2", fullTopic);
   sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
-  client->publish("tele/i3/inside/bike-zone/shop-light-switches/INFO2", buf);
+  client->publish(topicBuf, buf);
 }
 
 
