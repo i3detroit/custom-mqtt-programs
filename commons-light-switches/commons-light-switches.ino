@@ -42,6 +42,7 @@ void centerOn(PubSubClient* client) {
   client->publish("cmnd/i3/inside/lights/009/POWER", "1");
 }
 void westOn(PubSubClient* client) {
+  client->publish("cmnd/i3/inside/lights/010/POWER", "1");
   client->publish("cmnd/i3/inside/lights/011/POWER", "1");
   client->publish("cmnd/i3/inside/lights/012/POWER", "1");
   client->publish("cmnd/i3/inside/lights/013/POWER", "1");
@@ -61,6 +62,7 @@ void centerOff(PubSubClient* client) {
   client->publish("cmnd/i3/inside/lights/009/POWER", "0");
 }
 void westOff(PubSubClient* client) {
+  client->publish("cmnd/i3/inside/lights/010/POWER", "0");
   client->publish("cmnd/i3/inside/lights/011/POWER", "0");
   client->publish("cmnd/i3/inside/lights/012/POWER", "0");
   client->publish("cmnd/i3/inside/lights/013/POWER", "0");
