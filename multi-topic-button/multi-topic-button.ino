@@ -9,7 +9,6 @@
 #define TOPIC "i3/program-me/NEW-single-topic-button"
 #endif
 
-
 #ifndef TOPIC_0_ON_PIN
 #define TOPIC_0_ON_PIN 0
 #endif
@@ -65,38 +64,31 @@ int debounce_time = 50;
 bool control_state[ARRAY_SIZE(button_pins)/3];
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
+  //Serial.print("Message arrived [");
+  //Serial.print(topic);
+  //Serial.print("] ");
+  //for (int i = 0; i < length; i++) {
+  //  Serial.print((char)payload[i]);
+  //}
+  //Serial.println();
 
   topic += 5;
 
   int topicIndex = -1;
   if(strncmp(topic, TOPIC_0_TOPIC, strlen(TOPIC_0_TOPIC)) == 0) {
     topicIndex = 0;
-  Serial.print("Topic set 0: ");
   }
 #ifdef TOPIC_1_TOPIC
   if(strncmp(topic, TOPIC_1_TOPIC, strlen(TOPIC_1_TOPIC)) == 0) {
     topicIndex = 1;
-  Serial.print("Topic set 1: ");
   }
 #endif
-  Serial.print("Topic index: ");
-  Serial.println(topicIndex);
 
   if((char)payload[0] == 'O' && (char)payload[1] == 'N') {
     control_state[topicIndex] = true;
   } else if((char)payload[0] == 'O' && (char)payload[1] == 'F') {
     control_state[topicIndex] = false;
   }
-  Serial.print("state: ");
-  Serial.println(control_state[topicIndex]);
-
 
   switch(topicIndex) {
     case 0:
@@ -117,23 +109,19 @@ void connectSuccess(PubSubClient* client, char* ip) {
   //Subscribe to the result topic from the thing we control
   sprintf(topicBuf, "stat/%s/POWER", TOPIC_0_TOPIC);
   client->subscribe(topicBuf);
-  Serial.print("Subscribing to: ");
-  Serial.println(topicBuf);
   sprintf(topicBuf, "cmnd/%s/POWER", TOPIC_0_TOPIC);
   client->publish(topicBuf, "");
 
 #ifdef TOPIC_1_TOPIC
   sprintf(topicBuf, "stat/%s/POWER", TOPIC_1_TOPIC);
   client->subscribe(topicBuf);
-  Serial.print("Subscribing to: ");
-  Serial.println(topicBuf);
   sprintf(topicBuf, "cmnd/%s/POWER", TOPIC_1_TOPIC);
   client->publish(topicBuf, "");
 #endif
 }
 
 void setup() {
-  Serial.begin(115200);
+  //Serial.begin(115200);
   mqtt_options.connectedLoop = connectedLoop;
   mqtt_options.callback = callback;
   mqtt_options.connectSuccess = connectSuccess;
@@ -143,7 +131,7 @@ void setup() {
   mqtt_options.mqtt_port = mqtt_port;
   mqtt_options.host_name = host_name;
   mqtt_options.fullTopic = fullTopic;
-  mqtt_options.debug_print = true;
+  mqtt_options.debug_print = false;
   setup_mqtt(&mqtt_options);
 
   memset(button_state, 1, ARRAY_SIZE(button_pins));
@@ -182,10 +170,10 @@ void connectedLoop(PubSubClient* client) {
 #ifdef TOPIC_1_TOPIC
           sprintf(topicBuf, "cmnd/%s/POWER", TOPIC_1_TOPIC);
 #else
-          Serial.println("Should not be?");
+          //Serial.println("Should not be?");
 #endif
         } else {
-          Serial.println("Should not be, pt II?");
+          //Serial.println("Should not be, pt II?");
         }
 
         if(i%3 < 2) { //1 and 2 are set on and off
