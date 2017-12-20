@@ -61,7 +61,7 @@ int debounce[] = {0,0,0};
 const int debounce_time = 50;
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  if (strcmp(topic, "stat/i3/classroom/glassDoor/lock") == 0) {
+  if (strcmp(topic, "stat/i3/classroom/glass-door/lock") == 0) {
     //is LOCKED or UNLOCKED so comparing first char is sufficient
     pcf8574.write(GLASS_DOOR_LOCK_GREEN, (char)payload[0] == 'L' ? 1 : 0);
     pcf8574.write(GLASS_DOOR_LOCK_RED, (char)payload[0] == 'L' ? 0 : 1);
@@ -88,8 +88,8 @@ void connectSuccess(PubSubClient* client, char* ip) {
   sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
   client->publish("tele/i3/inside/commons/exitIndicator/INFO2", buf);
 
-  client->subscribe("stat/i3/classroom/glassDoor/lock");
-  client->publish("cmnd/i3/classroom/glassDoor/lock", "query");
+  client->subscribe("stat/i3/classroom/glass-door/lock");
+  client->publish("cmnd/i3/classroom/glass-door/lock", "query");
 
   client->subscribe("cmnd/i3/inside/commons/exit-indicator/shutdown-LED");
   client->subscribe("cmnd/i3/inside/commons/normal-doorbell/press");

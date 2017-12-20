@@ -2,11 +2,11 @@
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 #ifndef NAME
-#define NAME "NEW-single-topic-button"
+#define NAME "NEW-multi-topic-button"
 #endif
 
 #ifndef TOPIC
-#define TOPIC "i3/program-me/NEW-single-topic-button"
+#define TOPIC "i3/program-me/NEW-multi-topic-button"
 #endif
 
 #ifndef TOPIC_0_ON_PIN
