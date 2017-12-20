@@ -63,7 +63,7 @@ const int button_pins[] = {TOPIC_0_ON_PIN, TOPIC_0_OFF_PIN, TOPIC_0_TOGGLE_PIN, 
 int button_state[ARRAY_SIZE(button_pins)];
 int button_state_last[ARRAY_SIZE(button_pins)];
 int debounce[ARRAY_SIZE(button_pins)];
-int debounce_time = 50;
+int debounce_time = 80;
 
 bool control_state[ARRAY_SIZE(button_pins)/3];
 
@@ -185,6 +185,7 @@ void setup() {
 void connectedLoop(PubSubClient* client) {
   //Foreach pin run debouncing, and if it's a real press call the function
   for(int i=0; i < ARRAY_SIZE(button_pins); ++i) {
+    if(button_pins[i] == -1) continue;
     button_state[i] = digitalRead(button_pins[i]);//Read current state
     //If the current state does not equal the last state, AND it's been long enough since the last change
     unsigned long now = millis() + (unsigned long)-3000;

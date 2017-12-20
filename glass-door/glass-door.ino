@@ -5,7 +5,7 @@
 
 #define LED_PIN 2
 
-//const char* topic = "i3/classroom/glassDoor";
+//const char* topic = "i3/classroom/glass-door";
 
 char buf[1024];
 
@@ -24,22 +24,22 @@ const int numButtons = sizeof(button_pins)/sizeof(button_pins[0]);
 int button_state[] = {1,1};
 int button_state_last[] = {-1,-1};
 int debounce[] = {0,0};
-const int debounce_time = 50;
+const int debounce_time = 80;
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  if (strcmp(topic, "cmnd/i3/classroom/glassDoor/lock") == 0) {
-    client->publish("stat/i3/classroom/glassDoor/lock", button_state_last[0] ? "LOCKED" : "UNLOCKED");
-  } else if (strcmp(topic, "cmnd/i3/classroom/glassDoor/open") == 0) {
-    client->publish("stat/i3/classroom/glassDoor/open", button_state_last[1] ? "OPEN" : "CLOSED");
+  if (strcmp(topic, "cmnd/i3/classroom/glass-door/lock") == 0) {
+    client->publish("stat/i3/classroom/glass-door/lock", button_state_last[0] ? "LOCKED" : "UNLOCKED");
+  } else if (strcmp(topic, "cmnd/i3/classroom/glass-door/open") == 0) {
+    client->publish("stat/i3/classroom/glass-door/open", button_state_last[1] ? "OPEN" : "CLOSED");
   }
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {
   //subscribe and shit here
   sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
-  client->publish("tele/i3/classroom/glassDoor/INFO2", buf);
-  client->subscribe("cmnd/i3/classroom/glassDoor/lock");
-  client->subscribe("cmnd/i3/classroom/glassDoor/open");
+  client->publish("tele/i3/classroom/glass-door/INFO2", buf);
+  client->subscribe("cmnd/i3/classroom/glass-door/lock");
+  client->subscribe("cmnd/i3/classroom/glass-door/open");
 }
 
 void setup() {
@@ -62,10 +62,10 @@ void connectedLoop(PubSubClient* client) {
     if (button_state[i] != button_state_last[i] && millis() - debounce[i] > debounce_time) {
 
       if(i == 0) {
-        client->publish("stat/i3/classroom/glassDoor/lock", button_state[i] ? "LOCKED" : "UNLOCKED");
+        client->publish("stat/i3/classroom/glass-door/lock", button_state[i] ? "LOCKED" : "UNLOCKED");
         digitalWrite(LED_PIN, button_state[i] ? LOW : HIGH);
       } else if(i == 1) {
-        client->publish("stat/i3/classroom/glassDoor/open", button_state[i] ? "OPEN" : "CLOSED");
+        client->publish("stat/i3/classroom/glass-door/open", button_state[i] ? "OPEN" : "CLOSED");
       }
 
       //If the button was pressed or released, we still need to reset the debounce timer.
