@@ -112,7 +112,7 @@ void connectedLoop(PubSubClient* client) {
 
     sprintf(topicBuf, "tele/%s/dht22", topic);
     ftoa(floatBuf, dht.readTemperature(), 2);
-    sprintf(buf, "{\"Temperature:%s, \"Humidity\":", floatBuf);
+    sprintf(buf, "{\"Temperature\":%s, \"Humidity\":", floatBuf);
     ftoa(floatBuf, dht.readHumidity(), 2);
     sprintf(buf + strlen(buf), "%s}", floatBuf);
     Serial.println("dht22");
