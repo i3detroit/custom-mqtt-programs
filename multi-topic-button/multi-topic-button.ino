@@ -52,7 +52,11 @@ struct mqtt_wrapper_options mqtt_options;
 #ifndef TOPIC_1_TOPIC
 const int button_pins[] = {TOPIC_0_ON_PIN, TOPIC_0_OFF_PIN, TOPIC_0_TOGGLE_PIN};
 #else
+#ifndef TOPIC_2_TOPIC
 const int button_pins[] = {TOPIC_0_ON_PIN, TOPIC_0_OFF_PIN, TOPIC_0_TOGGLE_PIN, TOPIC_1_ON_PIN, TOPIC_1_OFF_PIN, TOPIC_1_TOGGLE_PIN};
+#else
+const int button_pins[] = {TOPIC_0_ON_PIN, TOPIC_0_OFF_PIN, TOPIC_0_TOGGLE_PIN, TOPIC_1_ON_PIN, TOPIC_1_OFF_PIN, TOPIC_1_TOGGLE_PIN, TOPIC_2_ON_PIN, TOPIC_2_OFF_PIN, TOPIC_2_TOGGLE_PIN};
+#endif
 #endif
 
 //Debounce setup
@@ -83,6 +87,11 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     topicIndex = 1;
   }
 #endif
+#ifdef TOPIC_2_TOPIC
+  if(strncmp(topic, TOPIC_2_TOPIC, strlen(TOPIC_2_TOPIC)) == 0) {
+    topicIndex = 2;
+  }
+#endif
 
   if((char)payload[0] == 'O' && (char)payload[1] == 'N') {
     control_state[topicIndex] = true;
@@ -101,6 +110,12 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       digitalWrite(TOPIC_1_LED_OFF, !control_state[topicIndex]);
       break;
 #endif
+#ifdef TOPIC_2_TOPIC
+    case 2:
+      digitalWrite(TOPIC_2_LED_ON, control_state[topicIndex]);
+      digitalWrite(TOPIC_2_LED_OFF, !control_state[topicIndex]);
+      break;
+#endif
   }
 
 }
@@ -116,6 +131,12 @@ void connectSuccess(PubSubClient* client, char* ip) {
   sprintf(topicBuf, "stat/%s/POWER", TOPIC_1_TOPIC);
   client->subscribe(topicBuf);
   sprintf(topicBuf, "cmnd/%s/POWER", TOPIC_1_TOPIC);
+  client->publish(topicBuf, "");
+#endif
+#ifdef TOPIC_2_TOPIC
+  sprintf(topicBuf, "stat/%s/POWER", TOPIC_2_TOPIC);
+  client->subscribe(topicBuf);
+  sprintf(topicBuf, "cmnd/%s/POWER", TOPIC_2_TOPIC);
   client->publish(topicBuf, "");
 #endif
 }
@@ -153,6 +174,12 @@ void setup() {
   digitalWrite(TOPIC_1_LED_ON, 0);
   digitalWrite(TOPIC_1_LED_OFF, 0);
 #endif
+#ifdef TOPIC_2_TOPIC
+  pinMode(TOPIC_2_LED_ON, OUTPUT);
+  pinMode(TOPIC_2_LED_OFF, OUTPUT);
+  digitalWrite(TOPIC_2_LED_ON, 0);
+  digitalWrite(TOPIC_2_LED_OFF, 0);
+#endif
 }
 
 void connectedLoop(PubSubClient* client) {
@@ -169,6 +196,12 @@ void connectedLoop(PubSubClient* client) {
         } else if(i < 6) {
 #ifdef TOPIC_1_TOPIC
           sprintf(topicBuf, "cmnd/%s/POWER", TOPIC_1_TOPIC);
+#else
+          //Serial.println("Should not be?");
+#endif
+        } else if(i < 9) {
+#ifdef TOPIC_2_TOPIC
+          sprintf(topicBuf, "cmnd/%s/POWER", TOPIC_2_TOPIC);
 #else
           //Serial.println("Should not be?");
 #endif
@@ -193,6 +226,5 @@ void connectedLoop(PubSubClient* client) {
 
 void loop() {
   loop_mqtt();
-
 }
 
