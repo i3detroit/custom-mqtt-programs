@@ -7,12 +7,14 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+//DOES:
+//  button publish to cmnd/i3/openhab/shutdown
+//  LED listening to cmnd/i3/exitIndicator/shutdownLED RED/GREEN
+//  input from garage door publishing to stat/i3/commons/garageDoor LOCKED/UNLOCKED
+//  LED for glass door listening to cmnd/i3/classroom/glassDoor/lock
+//  LED for garage door directly controlled
 //TODO:
-//button publish to cmnd/i3/openhab/shutdown
-//LED listening to cmnd/i3/exitIndicator/shutdownLED RED/GREEN
-//input from garage door publishing to stat/i3/commons/garageDoor LOCKED/UNLOCKED
-//LED for glass door listening to cmnd/i3/classroom/glassDoor/lock
-//LED for garage door directly controlled
+//  LED for argon stat/i3/inside/weld-zone/tank-sensors/argon
 
 //pcf8574 i2c breakout pins
 #define GLASS_DOOR_LOCK_RED 1
@@ -21,11 +23,11 @@
 #define GARAGE_RED 3
 #define GARAGE_GREEN 2
 
-#define AIR_COMPRESSOR_RED 5
-#define AIR_COMPRESSOR_GREEN 4
+#define ARGON_RED 5
+#define ARGON_GREEN 4
 
-#define SHUTDOWN_RED 7
-#define SHUTDOWN_GREEN 6
+#define AIR_COMPRESSOR_RED 7
+#define AIR_COMPRESSOR_GREEN 6
 
 
 
@@ -46,10 +48,13 @@ TwoWire testWire;
 PCF857x pcf8574(0b00111000, &testWire);
 
 const char* host_name = "front-door-indicator";
+const char* fullTopic = "i3/inside/commons/front-door-indicator";
 const char* ssid = "i3detroit-wpa";
 const char* password = "i3detroit";
 const char* mqtt_server = "10.13.0.22";
 const int mqtt_port = 1883;
+
+struct mqtt_wrapper_options mqtt_options;
 
 // button pins 4 is sthudown button, 5 is garage door
 const int button_pins[] = {SHUTDOWN_BUTTON, GARAGE_DOOR_BUTTON, NORMAL_DOORBELL};
@@ -61,18 +66,18 @@ int debounce[] = {0,0,0};
 const int debounce_time = 50;
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  if (strcmp(topic, "stat/i3/classroom/glass-door/lock") == 0) {
+  if (strcmp(topic, "glass") == 0) {
     //is LOCKED or UNLOCKED so comparing first char is sufficient
     pcf8574.write(GLASS_DOOR_LOCK_GREEN, (char)payload[0] == 'L' ? 1 : 0);
     pcf8574.write(GLASS_DOOR_LOCK_RED, (char)payload[0] == 'L' ? 0 : 1);
-  } else if (strcmp(topic, "cmnd/i3/inside/commons/exit-indicator/shutdown-LED") == 0) {
-    //RED or GREEN
-    pcf8574.write(SHUTDOWN_GREEN, (char)payload[0] == 'G' ? 1 : 0);
-    pcf8574.write(SHUTDOWN_RED,   (char)payload[0] == 'G' ? 0 : 1);
-  } else if (strcmp(topic, "stat/i3/inside/infrastructure/air-compressor/POWER") == 0) {
+  } else if (strcmp(topic, "air") == 0) {
     //OFF or ON
-    pcf8574.write(SHUTDOWN_GREEN, (char)payload[1] == 'F' ? 1 : 0);
-    pcf8574.write(SHUTDOWN_RED,   (char)payload[1] == 'F' ? 0 : 1);
+    pcf8574.write(AIR_COMPRESSOR_GREEN, (char)payload[1] == 'F' ? 1 : 0);
+    pcf8574.write(AIR_COMPRESSOR_RED,   (char)payload[1] == 'F' ? 0 : 1);
+  } else if (strcmp(topic, "argon") == 0) {
+    //CLOSED or OPEN
+    pcf8574.write(ARGON_GREEN, (char)payload[0] == 'C' ? 1 : 0);
+    pcf8574.write(ARGON_RED, (char)payload[0] == 'C' ? 0 : 1);
   } else if (strcmp(topic, "cmnd/i3/inside/commons/garage-door/lock") == 0) {
     client->publish("stat/i3/inside/commons/garage-door/lock", button_state[1] ? "UNLOCKED" : "LOCKED");
   } else if (strcmp(topic, "cmnd/i3/inside/commons/normal-doorbell/press") == 0) {
@@ -84,24 +89,25 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {
-  //subscribe and shit here
-  sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
-  client->publish("tele/i3/inside/commons/exitIndicator/INFO2", buf);
-
-  client->subscribe("stat/i3/classroom/glass-door/lock");
-  client->publish("cmnd/i3/classroom/glass-door/lock", "query");
-
-  client->subscribe("cmnd/i3/inside/commons/exit-indicator/shutdown-LED");
+  //client->subscribe("cmnd/i3/inside/commons/exit-indicator/shutdown-LED");
   client->subscribe("cmnd/i3/inside/commons/normal-doorbell/press");
   client->subscribe("cmnd/i3/inside/commons/garage-door/lock");
-
-  client->subscribe("stat/i3/inside/infrastructure/air-compressor/POWER");
-  client->publish("cmnd/i3/inside/infrastructure/air-compressor/POWER", "query");
+  client->publish("cmnd/i3/inside/commons/front-door-funnel/query", "");
 }
 
 
 void setup() {
-  setup_mqtt(connectedLoop, callback, connectSuccess, ssid, password, mqtt_server, mqtt_port, host_name, false);
+  mqtt_options.connectedLoop = connectedLoop;
+  mqtt_options.callback = callback;
+  mqtt_options.connectSuccess = connectSuccess;
+  mqtt_options.ssid = ssid;
+  mqtt_options.password = password;
+  mqtt_options.mqtt_server = mqtt_server;
+  mqtt_options.mqtt_port = mqtt_port;
+  mqtt_options.host_name = host_name;
+  mqtt_options.fullTopic = fullTopic;
+  mqtt_options.debug_print = false;
+  setup_mqtt(&mqtt_options);
 
   //input pins
   for (int i=0; i < ARRAY_SIZE(button_pins); ++i) {
