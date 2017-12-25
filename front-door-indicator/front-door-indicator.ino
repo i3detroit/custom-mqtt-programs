@@ -127,6 +127,8 @@ void connectedLoop(PubSubClient* client) {
       if(i == 0 && button_state[i] == HIGH) {
         //shutdown button
         client->publish("cmnd/i3/automation/shutdown", "DOWNSHUT");
+        sprintf(buf, "stat/%s/shutdown", fullTopic);
+        client->publish(buf, "It was I who pressed the button");
       } else if(i == 1) {
         //garage door
         client->publish("stat/i3/inside/commons/garage-door/lock", button_state[i] ? "UNLOCKED" : "LOCKED");
