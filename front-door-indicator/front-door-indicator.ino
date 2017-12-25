@@ -30,8 +30,6 @@
 #define AIR_COMPRESSOR_GREEN 6
 
 
-
-
 //actual pins
 #define SHUTDOWN_BUTTON 12
 #define GARAGE_DOOR_BUTTON 13

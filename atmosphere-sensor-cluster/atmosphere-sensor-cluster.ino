@@ -34,7 +34,7 @@ char* topic = TOPIC;
 
 char buf[1024];
 char topicBuf[1024];
-char floatBuf[8];
+char floatBuf[16];
 
 Adafruit_BMP280 bmp;
 BH1750 lightMeter(0x23);
