@@ -10,6 +10,32 @@
 #include <PubSubClient.h>
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+#ifndef WIFI_SSID
+#define WIFI_SSID "i3detroit-wpa"
+#endif
+
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD "i3detroit"
+#endif
+
+#ifndef MQTT_SERVER
+#define MQTT_SERVER "10.13.0.22"
+#endif
+
+#ifndef MQTT_PORT
+#define MQTT_PORT 1883
+#endif
+
+#ifndef NAME
+#define NAME "commons-light-switches"
+#endif
+
+#ifndef TOPIC
+#define TOPIC "i3/inside/commons/light-switches"
+#endif
+
+struct mqtt_wrapper_options mqtt_options;
+
 const int button_pins[] = { 13, 14, 12, 5, 16, 2 };
 const int numButtons = sizeof(button_pins)/sizeof(button_pins[0]);
 
@@ -22,11 +48,6 @@ int button_state_last[] = {1,1,1,1,1,1,1};
 int debounce[] = {0,0,0,0,0,0,0};
 const int debounce_time = 50;
 
-const char* host_name = "commons-light-switches";
-const char* ssid = "i3detroit-wpa";
-const char* password = "i3detroit";
-const char* mqtt_server = "10.13.0.22";
-const int mqtt_port = 1883;
 
 void eastOn(PubSubClient* client) {
   client->publish("cmnd/i3/inside/lights/001/POWER", "1");
@@ -81,14 +102,21 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {
-  //subscribe and shit here
-  sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
-  client->publish("tele/i3/inside/commons/commons-light-switches/INFO2", buf);
 }
 
 
 void setup() {
-  setup_mqtt(connectedLoop, callback, connectSuccess, ssid, password, mqtt_server, mqtt_port, host_name, false);
+  mqtt_options.connectedLoop = connectedLoop;
+  mqtt_options.callback = callback;
+  mqtt_options.connectSuccess = connectSuccess;
+  mqtt_options.ssid = WIFI_SSID;
+  mqtt_options.password = WIFI_PASSWORD;
+  mqtt_options.mqtt_server = MQTT_SERVER;
+  mqtt_options.mqtt_port = MQTT_PORT;
+  mqtt_options.host_name = NAME;
+  mqtt_options.fullTopic = TOPIC;
+  mqtt_options.debug_print = false;
+  setup_mqtt(&mqtt_options);
 
   //input pins
   for (int i=0; i < ARRAY_SIZE(button_pins); ++i) {

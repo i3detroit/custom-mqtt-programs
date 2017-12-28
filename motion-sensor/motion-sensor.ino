@@ -12,18 +12,29 @@
 #define TOPIC "i3/program-me/NEW-motion-sensor"
 #endif
 
+#ifndef WIFI_SSID
+#define WIFI_SSID "i3detroit-wpa"
+#endif
+
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD "i3detroit"
+#endif
+
+#ifndef MQTT_SERVER
+#define MQTT_SERVER "10.13.0.22"
+#endif
+
+#ifndef MQTT_PORT
+#define MQTT_PORT 1883
+#endif
+
+struct mqtt_wrapper_options mqtt_options;
+
 char buf[1024];
 char topicBuf[1024];
 
 bool control_state;
 
-
-const char* host_name = NAME;
-const char* topic = TOPIC;
-const char* ssid = "i3detroit-wpa";
-const char* password = "i3detroit";
-const char* mqtt_server = "10.13.0.22";
-const int mqtt_port = 1883;
 
 // button pins
 const int button_pins[] = {1};
@@ -48,15 +59,20 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {
-  //subscribe and shit here
-  //TODO:
-  sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
-  sprintf(topicBuf, "stat/%s/INFO2", topic);
-  client->publish(topicBuf, buf);
 }
 
 void setup() {
-  setup_mqtt(connectedLoop, callback, connectSuccess, ssid, password, mqtt_server, mqtt_port, host_name, true);
+  mqtt_options.connectedLoop = connectedLoop;
+  mqtt_options.callback = callback;
+  mqtt_options.connectSuccess = connectSuccess;
+  mqtt_options.ssid = WIFI_SSID;
+  mqtt_options.password = WIFI_PASSWORD;
+  mqtt_options.mqtt_server = MQTT_SERVER;
+  mqtt_options.mqtt_port = MQTT_PORT;
+  mqtt_options.host_name = NAME;
+  mqtt_options.fullTopic = TOPIC;
+  mqtt_options.debug_print = false;
+  setup_mqtt(&mqtt_options);
 
   //input pins
   for (int i=0; i < numButtons; ++i) {
@@ -69,7 +85,7 @@ void connectedLoop(PubSubClient* client) {
     offCheck = millis() + offCheckInterval;
     //Turn off if needed
     if (millis() - lastMotion > motionCooldown) {
-      sprintf(topicBuf, "stat/%s/motion", topic);
+      sprintf(topicBuf, "stat/%s/motion", TOPIC);
       client->publish(topicBuf, "OFF");
     }
   }
@@ -81,7 +97,7 @@ void connectedLoop(PubSubClient* client) {
       if (button_state[i] == LOW) {
         lastMotion = millis();
         if(millis() - lastPublish > durationBetweenPublishes) {
-          sprintf(topicBuf, "stat/%s/motion", topic);
+          sprintf(topicBuf, "stat/%s/motion", TOPIC);
           client->publish(topicBuf, "ON");
           lastPublish = millis();
         }

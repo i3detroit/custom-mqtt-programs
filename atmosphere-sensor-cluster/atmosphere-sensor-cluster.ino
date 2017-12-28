@@ -30,8 +30,6 @@
 #include <BH1750.h>
 #include "DHT.h"
 
-char* topic = TOPIC;
-
 char buf[1024];
 char topicBuf[1024];
 char floatBuf[16];
@@ -78,7 +76,7 @@ void setup() {
   mqtt_options.mqtt_server = MQTT_SERVER;
   mqtt_options.mqtt_port = MQTT_PORT;
   mqtt_options.host_name = NAME;
-  mqtt_options.fullTopic = topic;
+  mqtt_options.fullTopic = TOPIC;
   mqtt_options.debug_print = true;
   setup_mqtt(&mqtt_options);
 
@@ -96,7 +94,7 @@ void connectedLoop(PubSubClient* client) {
   if( (long)( millis() - status ) >= 0) {
     status = millis() + statusInterval;
 
-    sprintf(topicBuf, "tele/%s/bmp280", topic);
+    sprintf(topicBuf, "tele/%s/bmp280", TOPIC);
     ftoa(floatBuf, bmp.readTemperature(), 2);
     sprintf(buf, "{\"Temperature\":%s, \"Pressure\":", floatBuf);
     ftoa(floatBuf, bmp.readPressure(), 2);
@@ -105,12 +103,18 @@ void connectedLoop(PubSubClient* client) {
     Serial.println("bmp280");
     Serial.println(buf);
 
-    sprintf(topicBuf, "tele/%s/lux", topic);
+    sprintf(topicBuf, "tele/%s/lux", TOPIC);
     sprintf(buf, "{\"Lux\":%d}", lightMeter.readLightLevel());
     client->publish(topicBuf, buf);
     Serial.println(buf);
 
-    sprintf(topicBuf, "tele/%s/dht22", topic);
+    /*
+     * 2017-12-26 14:39:15.580 tele/i3/inside/fablab/sensor-cluster/bmp280 {"Temperature":20.95, "Pressure":100810.14}
+     * 2017-12-26 14:39:15.627 tele/i3/inside/fablab/sensor-cluster/lux {"Lux":0}
+     * 2017-12-26 14:39:15.898 83647 {"Temperature":2147483647.2147483647, "Humidity":2147483647.2147483647}
+     */
+
+    sprintf(topicBuf, "tele/%s/dht22", TOPIC);
     ftoa(floatBuf, dht.readTemperature(), 2);
     sprintf(buf, "{\"Temperature\":%s, \"Humidity\":", floatBuf);
     ftoa(floatBuf, dht.readHumidity(), 2);

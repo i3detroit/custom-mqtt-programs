@@ -9,6 +9,23 @@
 #define TOPIC "i3/program-me/NEW-multi-topic-button"
 #endif
 
+#ifndef WIFI_SSID
+#define WIFI_SSID "i3detroit-wpa"
+#endif
+
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD "i3detroit"
+#endif
+
+#ifndef MQTT_SERVER
+#define MQTT_SERVER "10.13.0.22"
+#endif
+
+#ifndef MQTT_PORT
+#define MQTT_PORT 1883
+#endif
+
+
 #ifndef TOPIC_0_ON_PIN
 #define TOPIC_0_ON_PIN 0
 #endif
@@ -37,10 +54,10 @@
 
 const char* host_name = NAME;
 const char* fullTopic = TOPIC;
-const char* ssid = "i3detroit-wpa";
-const char* password = "i3detroit";
-const char* mqtt_server = "10.13.0.22";
-const int mqtt_port = 1883;
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASSWORD;
+const char* mqtt_server = MQTT_SERVER;
+const int mqtt_port = MQTT_PORT;
 
 char buf[1024];
 char topicBuf[1024];

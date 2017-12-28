@@ -5,16 +5,36 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+#ifndef WIFI_SSID
+#define WIFI_SSID "i3detroit-wpa"
+#endif
+
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD "i3detroit"
+#endif
+
+#ifndef MQTT_SERVER
+#define MQTT_SERVER "10.13.0.22"
+#endif
+
+#ifndef MQTT_PORT
+#define MQTT_PORT 1883
+#endif
+
+#ifndef NAME
+#define NAME "air-compressor"
+#endif
+
+#ifndef TOPIC
+#define TOPIC "i3/inside/infrastructure/air-compressor"
+#endif
+
 #define ON_BUTTON 4
 #define OFF_BUTTON 5
 
 char buf[1024];
 
-const char* host_name = "air-compressor";
-const char* ssid = "i3detroit-wpa";
-const char* password = "i3detroit";
-const char* mqtt_server = "10.13.0.22";
-const int mqtt_port = 1883;
+struct mqtt_wrapper_options mqtt_options;
 
 const int button_pins[] = {12};
 
@@ -25,7 +45,7 @@ int debounce[] = {0};
 const int debounce_time = 1000;
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  if (strcmp(topic, "cmnd/i3/inside/infrastructure/air-compressor/POWER") == 0) {
+  if (strcmp(topic, "power") == 0) {
     Serial.println("Got command to power");
     if((char)payload[0] == '0' || (char)payload[1] == 'F') {
       Serial.println("off");
@@ -53,16 +73,22 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {
-  //subscribe and shit here
-  sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
-  client->publish("tele/i3/inside/infrastructure/air-compressor/INFO2", buf);
-  client->subscribe("cmnd/i3/inside/infrastructure/air-compressor/POWER");
 }
 
 
 void setup() {
   Serial.begin(115200);
-  setup_mqtt(connectedLoop, callback, connectSuccess, ssid, password, mqtt_server, mqtt_port, host_name);
+  mqtt_options.connectedLoop = connectedLoop;
+  mqtt_options.callback = callback;
+  mqtt_options.connectSuccess = connectSuccess;
+  mqtt_options.ssid = WIFI_SSID;
+  mqtt_options.password = WIFI_PASSWORD;
+  mqtt_options.mqtt_server = MQTT_SERVER;
+  mqtt_options.mqtt_port = MQTT_PORT;
+  mqtt_options.host_name = NAME;
+  mqtt_options.fullTopic = TOPIC;
+  mqtt_options.debug_print = true;
+  setup_mqtt(&mqtt_options);
 
   //input pins
   for (int i=0; i < ARRAY_SIZE(button_pins); ++i) {

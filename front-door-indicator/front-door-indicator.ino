@@ -7,6 +7,23 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+#ifndef WIFI_SSID
+#define WIFI_SSID "i3detroit-wpa"
+#endif
+
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD "i3detroit"
+#endif
+
+#ifndef MQTT_SERVER
+#define MQTT_SERVER "10.13.0.22"
+#endif
+
+#ifndef MQTT_PORT
+#define MQTT_PORT 1883
+#endif
+
+
 //DOES:
 //  button publish to cmnd/i3/openhab/shutdown
 //  LED listening to cmnd/i3/exitIndicator/shutdownLED RED/GREEN
@@ -47,10 +64,10 @@ PCF857x pcf8574(0b00111000, &testWire);
 
 const char* host_name = "front-door-indicator";
 const char* fullTopic = "i3/inside/commons/front-door-indicator";
-const char* ssid = "i3detroit-wpa";
-const char* password = "i3detroit";
-const char* mqtt_server = "10.13.0.22";
-const int mqtt_port = 1883;
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASSWORD;
+const char* mqtt_server = MQTT_SERVER;
+const int mqtt_port = MQTT_PORT;
 
 struct mqtt_wrapper_options mqtt_options;
 
