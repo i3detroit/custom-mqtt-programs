@@ -1,3 +1,8 @@
+#include <Wire.h>
+#include <Adafruit_BMP085.h>
+#include <Adafruit_BMP280.h>
+#include <BH1750.h>
+#include "DHT.h"
 #include "mqtt-wrapper.h"
 
 #ifndef NAME
@@ -23,12 +28,6 @@
 #ifndef MQTT_PORT
 #define MQTT_PORT 1883
 #endif
-
-#include <Wire.h>
-#include <Adafruit_BMP085.h>
-#include <Adafruit_BMP280.h>
-#include <BH1750.h>
-#include "DHT.h"
 
 char buf[1024];
 char topicBuf[1024];
