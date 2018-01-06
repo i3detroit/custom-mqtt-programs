@@ -6,8 +6,6 @@
 */
 
 #include "mqtt-wrapper.h"
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 #ifndef NAME
@@ -88,13 +86,6 @@ void eastOff(PubSubClient* client) { // pin 2
 
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  // Serial.print("Message arrived [");
-  // Serial.print(topic);
-  // Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    // Serial.print((char)payload[i]);
-  }
-  // Serial.println();
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {

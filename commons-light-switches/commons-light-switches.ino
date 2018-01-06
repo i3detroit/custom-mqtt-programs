@@ -36,7 +36,7 @@
 
 struct mqtt_wrapper_options mqtt_options;
 
-const int button_pins[] = { 13, 14, 12, 5, 16, 2 };
+const int button_pins[] = { 13, 14, 12, 5, 0, 2 };
 const int numButtons = sizeof(button_pins)/sizeof(button_pins[0]);
 
 void (*button_functions[])(PubSubClient* client) = {&eastOn, &eastOff, &centerOn, &centerOff, &westOn, &westOff};
@@ -92,13 +92,6 @@ void westOff(PubSubClient* client) {
 
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {
