@@ -41,7 +41,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     buf[i] = (char)payload[i];
   }
   buf[length] = '\0';
-  if (strcmp(topic, "stat/i3/classroom/glass-door/lock") == 0) {
+  if (strcmp(topic, "stat/i3/inside/clasroom/glass-door/lock") == 0) {
     client->publish("cmnd/i3/inside/commons/front-door-indicator/glass", buf);
   } else if (strcmp(topic, "stat/i3/inside/infrastructure/air-compressor/POWER") == 0) {
     client->publish("cmnd/i3/inside/commons/front-door-indicator/air", buf);
@@ -49,14 +49,14 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     client->publish("cmnd/i3/inside/commons/front-door-indicator/argon", buf);
   } else {
     //this device is being queried
-    client->publish("cmnd/i3/classroom/glass-door/lock", "query");
+    client->publish("cmnd/i3/inside/clasroom/glass-door/lock", "query");
     client->publish("cmnd/i3/inside/infrastructure/air-compressor/POWER", "query");
     client->publish("cmnd/i3/inside/weld-zone/tank-sensors/argon", "query");
   }
 }
 void connectSuccess(PubSubClient* client, char* ip) {
-  client->subscribe("stat/i3/classroom/glass-door/lock");
-  client->publish("cmnd/i3/classroom/glass-door/lock", "query");
+  client->subscribe("stat/i3/inside/clasroom/glass-door/lock");
+  client->publish("cmnd/i3/inside/clasroom/glass-door/lock", "query");
 client->subscribe("stat/i3/inside/infrastructure/air-compressor/POWER");
   client->publish("cmnd/i3/inside/infrastructure/air-compressor/POWER", "query");
 
