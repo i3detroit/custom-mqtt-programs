@@ -36,8 +36,7 @@
 
 struct mqtt_wrapper_options mqtt_options;
 
-const int button_pins[] = { 13, 14, 12, 5, 0, 2 };
-const int numButtons = sizeof(button_pins)/sizeof(button_pins[0]);
+const int button_pins[] = { 4, 14, 12, 5, 0, 2 };
 
 void (*button_functions[])(PubSubClient* client) = {&eastOn, &eastOff, &centerOn, &centerOff, &westOn, &westOff};
 
