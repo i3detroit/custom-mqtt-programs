@@ -24,14 +24,14 @@
 #endif
 
 #ifndef TOPIC
-#define TOPIC "i3/inside/clasroom/glass-door"
+#define TOPIC "i3/inside/classroom/glass-door"
 #endif
 
 struct mqtt_wrapper_options mqtt_options;
 
 #define LED_PIN 2
 
-//const char* topic = "i3/inside/clasroom/glass-door";
+//const char* topic = "i3/inside/classroom/glass-door";
 
 char buf[1024];
 
@@ -48,9 +48,9 @@ const int debounce_time = 80;
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
   if (strcmp(topic, "lock") == 0) {
-    client->publish("stat/i3/inside/clasroom/glass-door/lock", button_state_last[0] ? "LOCKED" : "UNLOCKED");
+    client->publish("stat/i3/inside/classroom/glass-door/lock", button_state_last[0] ? "LOCKED" : "UNLOCKED");
   } else if (strcmp(topic, "open") == 0) {
-    client->publish("stat/i3/inside/clasroom/glass-door/open", button_state_last[1] ? "OPEN" : "CLOSED");
+    client->publish("stat/i3/inside/classroom/glass-door/open", button_state_last[1] ? "OPEN" : "CLOSED");
   }
 }
 
@@ -87,10 +87,10 @@ void connectedLoop(PubSubClient* client) {
     if (button_state[i] != button_state_last[i] && millis() - debounce[i] > debounce_time) {
 
       if(i == 0) {
-        client->publish("stat/i3/inside/clasroom/glass-door/lock", button_state[i] ? "LOCKED" : "UNLOCKED");
+        client->publish("stat/i3/inside/classroom/glass-door/lock", button_state[i] ? "LOCKED" : "UNLOCKED");
         digitalWrite(LED_PIN, button_state[i] ? LOW : HIGH);
       } else if(i == 1) {
-        client->publish("stat/i3/inside/clasroom/glass-door/open", button_state[i] ? "OPEN" : "CLOSED");
+        client->publish("stat/i3/inside/classroom/glass-door/open", button_state[i] ? "OPEN" : "CLOSED");
       }
 
       //If the button was pressed or released, we still need to reset the debounce timer.
