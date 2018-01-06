@@ -58,6 +58,7 @@ void westOn(PubSubClient* client) { // pin 4
   client->publish("cmnd/i3/inside/lights/022/POWER", "1");
   client->publish("cmnd/i3/inside/lights/023/POWER", "1");
   client->publish("cmnd/i3/inside/lights/024/POWER", "1");
+  client->publish("cmnd/i3/inside/lights/025/POWER", "1");
   client->publish("cmnd/i3/inside/lights/026/POWER", "1");
 }
 void westOff(PubSubClient* client) { // pin 5
@@ -66,6 +67,7 @@ void westOff(PubSubClient* client) { // pin 5
   client->publish("cmnd/i3/inside/lights/022/POWER", "0");
   client->publish("cmnd/i3/inside/lights/023/POWER", "0");
   client->publish("cmnd/i3/inside/lights/024/POWER", "0");
+  client->publish("cmnd/i3/inside/lights/025/POWER", "0");
   client->publish("cmnd/i3/inside/lights/026/POWER", "0");
 }
 void eastOn(PubSubClient* client) { // pin 0
