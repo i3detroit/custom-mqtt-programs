@@ -93,7 +93,7 @@ void connectSuccess(PubSubClient* client, char* ip) {
   client->publish("cmnd/i3/inside/laser-zone/vent-fan/POWER", "");
   client->publish("cmnd/i3/inside/infrastructure/air-compressor/POWER", "");
   client->publish("cmnd/i3/inside/laser-zone/bumblebee/chiller/POWER", "");
-  client->publish("cmnd/i3/inside/laser-zone/bumblebee/vent-fan-gate", "");
+  client->publish("cmnd/i3/inside/laser-zone/bumblebee/vent-fan-gate/query", "");
 }
 
 void setup() {
