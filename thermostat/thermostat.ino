@@ -228,7 +228,7 @@ void display() {
   u8g2.clearBuffer();
   u8g2.drawStr(0, 50, buf);
   itoa(targetTemp, buf, 10);
-  u8g2.drawStr(0, 100, buf);
+  u8g2.drawStr(0, 116, buf);
   u8g2.sendBuffer();
 }
 
