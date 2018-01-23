@@ -29,7 +29,7 @@
 #define MQTT_PORT 1883
 #endif
 
-#define PIXEL_PIN     13 //nodemcu D7
+#define PIXEL_PIN     13 //nodemcu/d1 mini D7
 #define NUM_PIXELS    8
 
 #define TRUE    1
@@ -42,13 +42,14 @@ uint32_t ledRed = pixels.Color(25*brightness,0,0);
 uint32_t ledBlue = pixels.Color(0,0,25*brightness);
 uint32_t ledOff = pixels.Color(0,0,0);
 int delayVal = 50;
+int millisLast = 0;
 
 struct mqtt_wrapper_options mqtt_options;
 
 bool chillerOn = FALSE;
 bool compressorOn = FALSE;
 bool ventFanOn = FALSE;
-bool ventFanGateOpen = FALSE;
+bool ventFanGateOpen = FALSE; 
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
   if (strcmp(topic, "stat/i3/inside/laser-zone/bumblebee/chiller/POWER") == 0) {
@@ -119,34 +120,37 @@ void connectedLoop(PubSubClient* client) {
 
 void loop() {
   if (chillerOn) {
-    pixels.setPixelColor(0,ledBlue);
-    pixels.setPixelColor(1,ledOff);
-  } else if (!chillerOn) {
-    pixels.setPixelColor(0,ledOff);
-    pixels.setPixelColor(1,ledRed);
-  }
-  if (compressorOn) {
-    pixels.setPixelColor(2,ledBlue);
-    pixels.setPixelColor(3,ledOff);
-  } else if (!compressorOn) {
-    pixels.setPixelColor(2,ledOff);
-    pixels.setPixelColor(3,ledRed);
-  }
-  if (ventFanOn) {
-    pixels.setPixelColor(4,ledBlue);
-    pixels.setPixelColor(5,ledOff);
-  } else if (!ventFanOn) {
-    pixels.setPixelColor(4,ledOff);
-    pixels.setPixelColor(5,ledRed);
-  }
-  if (ventFanGateOpen) {
     pixels.setPixelColor(6,ledBlue);
     pixels.setPixelColor(7,ledOff);
-  } else if (!ventFanGateOpen) {
+  } else if (!chillerOn) {
     pixels.setPixelColor(6,ledOff);
     pixels.setPixelColor(7,ledRed);
   }
-  pixels.show();
-  delay(delayVal);
+  if (compressorOn) {
+    pixels.setPixelColor(4,ledBlue);
+    pixels.setPixelColor(5,ledOff);
+  } else if (!compressorOn) {
+    pixels.setPixelColor(4,ledOff);
+    pixels.setPixelColor(5,ledRed);
+  }
+  if (ventFanOn) {
+    pixels.setPixelColor(2,ledBlue);
+    pixels.setPixelColor(3,ledOff);
+  } else if (!ventFanOn) {
+    pixels.setPixelColor(2,ledOff);
+    pixels.setPixelColor(3,ledRed);
+  }
+  if (ventFanGateOpen) {
+    pixels.setPixelColor(0,ledBlue);
+    pixels.setPixelColor(1,ledOff);
+  } else if (!ventFanGateOpen) {
+    pixels.setPixelColor(0,ledOff);
+    pixels.setPixelColor(1,ledRed);
+  }
+  if (millis() - millisLast >= delayVal) {
+    pixels.show();
+    millisLast = millis();
+  }
+  
   loop_mqtt();
 }
