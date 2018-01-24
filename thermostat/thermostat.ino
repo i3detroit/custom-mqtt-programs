@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <Arduino.h>
+#include <EEPROM.h>
 #include <U8g2lib.h>
 #include <Wire.h>
 #include <Adafruit_BMP280.h>
@@ -31,7 +32,16 @@
 #define MQTT_PORT 1883
 #endif
 
-#define DEFAULT_TEMP 10
+//magic numbers stored in eeprom to set boot state
+#define EEPROM_OFF 0
+#define EEPROM_COOL 1
+#define EEPROM_HEAT 2
+
+//default temps to go to based on state
+#define DEFAULT_HEAT_TEMP 10
+#define DEFAULT_COOL_TEMP 25
+
+//limits for target temp; and will always heat below min temp
 #define MIN_TEMP 5
 #define MAX_TEMP 30
 
@@ -125,10 +135,25 @@ uint8_t change_bit(uint8_t val, uint8_t num, bool bitval) {
 
 //Also used for init
 void resetState() {
-  targetTemp = DEFAULT_TEMP;
+  byte value = EEPROM.read(0);
+  switch((int)value) {
+    case EEPROM_OFF:
+      targetTemp = DEFAULT_HEAT_TEMP;
+      heat = false;
+      cool = false;
+      break;
+    case EEPROM_COOL:
+      targetTemp = DEFAULT_COOL_TEMP;
+      heat = false;
+      cool = true;
+      break;
+    case EEPROM_HEAT:
+      targetTemp = DEFAULT_HEAT_TEMP;
+      heat = true;
+      cool = false;
+      break;
+  }
   fanForced = false;
-  heat = false;
-  cool = false;
   displayDirty = true;
   stateDirty = true;
 }
@@ -151,7 +176,7 @@ void doControl() {
   toWrite = change_bit(toWrite, 7-LED_OFF, !heat && !cool);
   toWrite = change_bit(toWrite, 7-FAN_CONTROL, fanForced);
 
-  if(heat && currentTemp < targetTemp) {
+  if(heat && currentTemp < targetTemp || currentTemp < MIN_TEMP) {
     if(!enabled || heatCool) {
       mqttDirty = true;
     }
@@ -209,14 +234,20 @@ void handleButton(int button) {
       displayDirty = true;
       break;
     case HEAT:
+      EEPROM.write(0, EEPROM_HEAT);
+      EEPROM.commit();
       heat = true;
       cool = false;
       break;
     case OFF:
+      EEPROM.write(0, EEPROM_OFF);
+      EEPROM.commit();
       heat = false;
       cool = false;
       break;
     case COOL:
+      EEPROM.write(0, EEPROM_COOL);
+      EEPROM.commit();
       heat = false;
       cool = true;
       break;
@@ -319,6 +350,8 @@ void connectSuccess(PubSubClient* client, char* ip) {
 
 void setup() {
   Serial.begin(115200);
+
+  EEPROM.begin(1);
 
   resetState();
 
