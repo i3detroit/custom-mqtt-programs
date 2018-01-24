@@ -65,7 +65,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       // compressor is off
       compressorOn = FALSE;
     } else if ((char)payload[0] == '1' || (char)payload[1] == 'N') {
-      // compressor is on
+      // compressor is on1
       compressorOn = TRUE;
     }
   } else if (strcmp(topic, "stat/i3/inside/laser-zone/vent-fan/POWER") == 0) {
@@ -94,7 +94,7 @@ void connectSuccess(PubSubClient* client, char* ip) {
   client->publish("cmnd/i3/inside/laser-zone/vent-fan/POWER", "");
   client->publish("cmnd/i3/inside/infrastructure/air-compressor/POWER", "");
   client->publish("cmnd/i3/inside/laser-zone/bumblebee/chiller/POWER", "");
-  client->publish("cmnd/i3/inside/laser-zone/bumblebee/vent-fan-gate/query", "");
+  client->publish("cmnd/i3/inside/laser-zone/blast-gate-monitor/query", "");
 }
 
 void setup() {
@@ -120,32 +120,32 @@ void connectedLoop(PubSubClient* client) {
 
 void loop() {
   if (chillerOn) {
-    pixels.setPixelColor(6,ledBlue);
-    pixels.setPixelColor(7,ledOff);
-  } else if (!chillerOn) {
+    pixels.setPixelColor(7,ledBlue);
     pixels.setPixelColor(6,ledOff);
-    pixels.setPixelColor(7,ledRed);
+  } else if (!chillerOn) {
+    pixels.setPixelColor(7,ledOff);
+    pixels.setPixelColor(6,ledRed);
   }
   if (compressorOn) {
-    pixels.setPixelColor(4,ledBlue);
-    pixels.setPixelColor(5,ledOff);
-  } else if (!compressorOn) {
+    pixels.setPixelColor(5,ledBlue);
     pixels.setPixelColor(4,ledOff);
-    pixels.setPixelColor(5,ledRed);
+  } else if (!compressorOn) {
+    pixels.setPixelColor(5,ledOff);
+    pixels.setPixelColor(4,ledRed);
   }
   if (ventFanOn) {
-    pixels.setPixelColor(2,ledBlue);
-    pixels.setPixelColor(3,ledOff);
-  } else if (!ventFanOn) {
+    pixels.setPixelColor(3,ledBlue);
     pixels.setPixelColor(2,ledOff);
-    pixels.setPixelColor(3,ledRed);
+  } else if (!ventFanOn) {
+    pixels.setPixelColor(3,ledOff);
+    pixels.setPixelColor(2,ledRed);
   }
   if (ventFanGateOpen) {
-    pixels.setPixelColor(0,ledBlue);
-    pixels.setPixelColor(1,ledOff);
-  } else if (!ventFanGateOpen) {
+    pixels.setPixelColor(1,ledBlue);
     pixels.setPixelColor(0,ledOff);
-    pixels.setPixelColor(1,ledRed);
+  } else if (!ventFanGateOpen) {
+    pixels.setPixelColor(1,ledOff);
+    pixels.setPixelColor(0,ledRed);
   }
   if (millis() - millisLast >= delayVal) {
     pixels.show();

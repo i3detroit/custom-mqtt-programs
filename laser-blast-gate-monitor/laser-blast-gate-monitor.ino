@@ -33,7 +33,7 @@ struct mqtt_wrapper_options mqtt_options;
 char buf[1024];
 
 // switch pins 4 is bumblebee, 5 is wolverine
-const int switch_pins[] = {4, 5};
+const int button_pins[] = {4, 5}; //D1 mini pins 2, 1
 const int numButtons = sizeof(button_pins)/sizeof(button_pins[0]);
 
 //Debounce setup
@@ -44,8 +44,8 @@ const int debounce_time = 80;
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
   if (strcmp(topic, "query") == 0) {
-    client->publish("stat/i3/inside/laser-zone/bumblebee/vent-fan-gate", button_state_last[0] ? "open" : "closed");
-    client->publish("stat/i3/inside/laser-zone/wolverine/vent-fan-gate", button_state_last[1] ? "open" : "closed");
+    client->publish("stat/i3/inside/laser-zone/bumblebee/vent-fan-gate", button_state_last[0] ? "closed" : "open");
+    client->publish("stat/i3/inside/laser-zone/wolverine/vent-fan-gate", button_state_last[1] ? "closed" : "open");
   }
 }
 
@@ -78,10 +78,9 @@ void connectedLoop(PubSubClient* client) {
     //If the current state does not equal the last state, AND it's been long enough since the last change
     if (button_state[i] != button_state_last[i] && millis() - debounce[i] > debounce_time) {
       if(i == 0) {
-        client->publish("stat/i3/inside/laser-zone/bumblebee/vent-fan-gate", button_state[i] ? "open" : "closed");
-        digitalWrite(LED_PIN, button_state[i] ? LOW : HIGH);
+        client->publish("stat/i3/inside/laser-zone/bumblebee/vent-fan-gate", button_state[i] ? "closed" : "open");
       } else if(i == 1) {
-        client->publish("stat/i3/inside/laser-zone/wolverine/vent-fan-gate", button_state[i] ? "open" : "closed");
+        client->publish("stat/i3/inside/laser-zone/wolverine/vent-fan-gate", button_state[i] ? "closed" : "open ");
       }
       //If the button was pressed or released, we still need to reset the debounce timer.
       button_state_last[i] = button_state[i];
