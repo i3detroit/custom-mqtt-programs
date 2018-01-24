@@ -278,7 +278,7 @@ void reportState(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/request", TOPIC);
   sprintf(buf, "{\"TargetTemp\":");
   itoa(targetTemp, buf + strlen(buf), 10);
-  sprintf(buf + strlen(buf), "\", \"requested\":\"%s\", \"fan\":\"%s\"}", "targetTEmpTODO", (!heat && !cool) ? "OFF" : heat ? "HEAT" : "COOL", fanForced ? "ON" : "AUTO");
+  sprintf(buf + strlen(buf), "\", \"requested\":\"%s\", \"fan\":\"%s\"}", (!heat && !cool) ? "OFF" : heat ? "HEAT" : "COOL", fanForced ? "ON" : "AUTO");
   client->publish(topicBuf, buf);
 
   sprintf(topicBuf, "tele/%s/output", TOPIC);
