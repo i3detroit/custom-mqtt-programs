@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
-#include <Adafruit_BMP280.h>
+#include <Adafruit_BME280.h>
 #include <BH1750.h>
 #include "DHT.h"
 #include "mqtt-wrapper.h"
@@ -14,11 +14,11 @@
 #endif
 
 #ifndef WIFI_SSID
-#define WIFI_SSID "i3detroit-wpa"
+#define WIFI_SSID "i3detroit-iot"
 #endif
 
 #ifndef WIFI_PASSWORD
-#define WIFI_PASSWORD "i3detroit"
+#define WIFI_PASSWORD "securityrisk"
 #endif
 
 #ifndef MQTT_SERVER
@@ -33,7 +33,7 @@ char buf[1024];
 char topicBuf[1024];
 char floatBuf[16];
 
-Adafruit_BMP280 bmp;
+Adafruit_BME280 bme;
 BH1750 lightMeter(0x23);
 DHT dht(12, DHT22);
 
@@ -81,7 +81,7 @@ void setup() {
 
   Wire.begin(4, 5);
 
-  if (!bmp.begin(0x76)) {
+  if (!bme.begin(0x76)) {
     Serial.println("Could not find BMP 280 sensor");
     while (1) {}
   }
@@ -93,13 +93,15 @@ void connectedLoop(PubSubClient* client) {
   if( (long)( millis() - status ) >= 0) {
     status = millis() + statusInterval;
 
-    sprintf(topicBuf, "tele/%s/bmp280", TOPIC);
-    ftoa(floatBuf, bmp.readTemperature(), 2);
+    sprintf(topicBuf, "tele/%s/bme280", TOPIC);
+    ftoa(floatBuf, bme.readTemperature(), 2);
     sprintf(buf, "{\"Temperature\":%s, \"Pressure\":", floatBuf);
-    ftoa(floatBuf, bmp.readPressure(), 2);
+    ftoa(floatBuf, bme.readPressure(), 2);
+    sprintf(buf + strlen(buf), "%s, \"Humidity\":", floatBuf);
+    ftoa(floatBuf, bme.readHumidity(), 1);
     sprintf(buf + strlen(buf), "%s}", floatBuf);
     client->publish(topicBuf, buf);
-    Serial.println("bmp280");
+    Serial.println("bme280");
     Serial.println(buf);
 
     sprintf(topicBuf, "tele/%s/lux", TOPIC);
@@ -108,7 +110,7 @@ void connectedLoop(PubSubClient* client) {
     Serial.println(buf);
 
     /*
-     * 2017-12-26 14:39:15.580 tele/i3/inside/fablab/sensor-cluster/bmp280 {"Temperature":20.95, "Pressure":100810.14}
+     * 2017-12-26 14:39:15.580 tele/i3/inside/fablab/sensor-cluster/bme280 {"Temperature":20.95, "Pressure":100810.14}
      * 2017-12-26 14:39:15.627 tele/i3/inside/fablab/sensor-cluster/lux {"Lux":0}
      * 2017-12-26 14:39:15.898 83647 {"Temperature":2147483647.2147483647, "Humidity":2147483647.2147483647}
      */
