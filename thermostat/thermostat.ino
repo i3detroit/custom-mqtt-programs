@@ -3,7 +3,7 @@
 #include <EEPROM.h>
 #include <U8g2lib.h>
 #include <Wire.h>
-#include <Adafruit_BMP280.h>
+#include <Adafruit_BME280.h>
 #include <pcf8574_esp.h>
 #include <mqtt-wrapper.h>
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -94,7 +94,7 @@ unsigned long nextTimeout = 0UL;
 unsigned long timeoutInterval = 1000*3*60*60;
 
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R3, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ 5, /* data=*/ 4);
-Adafruit_BMP280 bmp;
+Adafruit_BME280 bme;
 
 
 int targetTemp;
@@ -264,15 +264,16 @@ void display() {
 }
 
 void readTemp() {
-  currentTemp = bmp.readTemperature();
-  ftoa(tempBuf, currentTemp, 2);
-  ftoa(pressureBuf, bmp.readPressure(), 2);
+  currentTemp = bme.readTemperature();
+  ftoa(tempBuf, bme.readTemperature(), 2);
   displayDirty = true;
   stateDirty = true;
 }
 void reportState(PubSubClient *client) {
-  sprintf(topicBuf, "tele/%s/bmp280", TOPIC);
-  sprintf(buf, "{\"Temperature\":%s, \"Pressure\":%s}", tempBuf, pressureBuf);
+  ftoa(pressureBuf, bme.readPressure(), 2);
+  ftoa(humidityBuf, bme.readHumidity(), 1);
+  sprintf(topicBuf, "tele/%s/bme280", TOPIC);
+  sprintf(buf, "{\"Temperature\":%s, \"Pressure\":%s, \"Humidity\":%s}", tempBuf, pressureBuf, humidityBuf);
   client->publish(topicBuf, buf);
 
   sprintf(topicBuf, "tele/%s/request", TOPIC);
@@ -376,7 +377,7 @@ void setup() {
   setup_mqtt(&mqtt_options);
 
   // --- Sensors ---
-  if (!bmp.begin(0x76)) {
+  if (!bme.begin(0x76)) {
     Serial.println("Could not find BMP 280 sensor");
     while (1) {}
   }
