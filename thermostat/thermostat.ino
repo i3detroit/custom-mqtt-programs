@@ -45,6 +45,10 @@
 #define MIN_TEMP 5
 #define MAX_TEMP 30
 
+// delay between heat on/off and fan on/off
+// fan lags behind heat
+#define FAN_DELAY 42*1000
+
 #define FAN_CONTROL 5 //turn on fan, 0 is on
 #define ENABLE_CONTROL 6 //enable/disable heat/cool
 #define SELECT_CONTROL 7 //heat:0 cool: 1
@@ -77,6 +81,7 @@ char buf[1024];
 char topicBuf[1024];
 
 char pressureBuf[16];
+char humidityBuf[16];
 char tempBuf[16];
 
 struct mqtt_wrapper_options mqtt_options;
@@ -93,9 +98,15 @@ unsigned long readInterval = 1000UL;
 unsigned long nextTimeout = 0UL;
 unsigned long timeoutInterval = 1000*3*60*60;
 
+unsigned long fanOnTime = 0UL;
+unsigned long fanOffTime = 0UL;
+
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R3, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ 5, /* data=*/ 4);
 Adafruit_BME280 bme;
 
+
+//swing temp how far above or below the target has to go to actually control
+uint8_t swing;
 
 int targetTemp;
 int currentTemp;
@@ -106,7 +117,7 @@ bool cool;
 //Currently outputting
 bool enabled;
 bool heatCool;
-bool currentFanForced;
+bool fan;
 
 bool displayDirty;
 bool stateDirty;
@@ -135,6 +146,7 @@ uint8_t change_bit(uint8_t val, uint8_t num, bool bitval) {
 
 //Also used for init
 void resetState() {
+  swing = EEPROM.read(1);
   byte value = EEPROM.read(0);
   switch((int)value) {
     case EEPROM_OFF:
@@ -156,50 +168,128 @@ void resetState() {
   fanForced = false;
   displayDirty = true;
   stateDirty = true;
+  fan = false;
 }
+
+uint8_t setHeat(uint8_t toWrite) {
+  if(!enabled || heatCool == 1) {
+    mqttDirty = true;
+  }
+  enabled = true;
+  heatCool = 0;
+  fanOffTime = 0;
+  if(!fanForced && fanOnTime == 0) {
+    fanOnTime = millis() + FAN_DELAY;
+  }
+  toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
+  toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 1);//0 is heat but this is inverted
+    return toWrite;
+}
+
+uint8_t setCool(uint8_t toWrite) {
+  if(!enabled || heatCool == 0) {
+    mqttDirty = true;
+  }
+  enabled = true;
+  heatCool = 1;
+  fanOnTime = 0;
+  if(!fanForced && fan && fanOffTime == 0) {
+    fanOffTime = millis() + FAN_DELAY;
+  }
+  toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
+  toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 0);//0 is heat but this is inverted
+  return toWrite;
+}
+uint8_t setOff(uint8_t toWrite) {
+  if(enabled) {
+    mqttDirty = true;
+  }
+  enabled = false;
+  fanOnTime = 0;
+  if(!fanForced && fan && fanOffTime == 0) {
+    fanOffTime = millis() + FAN_DELAY;
+  }
+  return change_bit(toWrite, 7-ENABLE_CONTROL, 0);
+}
+
 void doControl() {
   uint8_t toWrite = 0;
-  // LED_FAN_ON 4
-  // LED_FAN_AUTO 3
 
-  //LED_HEAT 2
-  //LED_OFF 1
-  //LED_COOL 0
-  if(currentFanForced != fanForced) {
-    mqttDirty = true;
-    currentFanForced = fanForced;
-  }
+
+  //status lights
   toWrite = change_bit(toWrite, 7-LED_FAN_ON, fanForced);
   toWrite = change_bit(toWrite, 7-LED_FAN_AUTO, !fanForced);
   toWrite = change_bit(toWrite, 7-LED_HEAT, heat);
   toWrite = change_bit(toWrite, 7-LED_COOL, cool);
   toWrite = change_bit(toWrite, 7-LED_OFF, !heat && !cool);
-  toWrite = change_bit(toWrite, 7-FAN_CONTROL, fanForced);
 
-  if(heat && currentTemp < targetTemp || currentTemp < MIN_TEMP) {
-    if(!enabled || heatCool) {
-      mqttDirty = true;
+  // fan control
+  if(fanOnTime != 0 && (long)( millis() - fanOnTime ) >= 0) {
+    fanOnTime = 0;
+    fan = true;
+    mqttDirty = true;
+  }
+  if(fanOffTime != 0 && (long)( millis() - fanOffTime ) >= 0) {
+    fanOffTime = 0;
+    fan = false;
+    mqttDirty = true;
+  }
+  if(fanForced && !fan) {
+    fan = true;
+    mqttDirty = true;
+  } else if(!fanForced && !enabled && fan) {
+    //not forcing fan, and not heating/cooling
+    fan = false;
+    mqttDirty = true;
+  }
+  toWrite = change_bit(toWrite, 7-FAN_CONTROL, fan);
+
+  // heating logic
+  /*
+   * if heat
+   *
+   *    if(current + swing < target)
+   *        below temp, heat
+   *        start heat
+   *    if(current - swing > target)
+   *        above
+   *        stop
+   *    if(current > target-swing && current < target+swing && enabled)
+   *        heating through swing
+   *        heat
+   *    if(current > target-swing && current < target+swing && !enabled)
+   *        //cooling through swing
+   *        stop
+   *    else
+   *        there is no else
+   *
+   *
+   */
+  if(currentTemp < MIN_TEMP) {
+    Serial.println("under min temp");
+    toWrite = setHeat(toWrite);
+  } else if(heat) {
+    if(currentTemp + swing <= targetTemp || (abs(currentTemp-targetTemp) < swing && enabled)) {
+      toWrite = setHeat(toWrite);
+    } else  if(currentTemp - swing >= targetTemp || (abs(currentTemp-targetTemp) && !enabled)) {
+      toWrite = setOff(toWrite);
+    } else {
+      Serial.println("HEAT ELSE WRONG");
     }
-    enabled = true;
-    heatCool = 0;
-    toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
-    toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 1);//0 is heat but this is inverted
-  } else if(cool && currentTemp > targetTemp) {
-    if(!enabled || !heatCool) {
-      mqttDirty = true;
+  } else if(cool) {
+    if(currentTemp - swing >= targetTemp || (currentTemp > targetTemp-swing && currentTemp < targetTemp+swing && !enabled)) {
+      toWrite = setCool(toWrite);
+    } else if(currentTemp + swing < targetTemp || (currentTemp > targetTemp-swing && currentTemp < targetTemp+swing && enabled)) {
+      toWrite = setOff(toWrite);
+    } else {
+      Serial.println("COOL ELSE WRONG");
     }
-    enabled = true;
-    heatCool = 1;
-    toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
-    toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 0);//0 is heat but this is inverted
   } else {
-    if(enabled) {
-      mqttDirty = true;
-    }
-    enabled = false;
-    toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 0);
+    //off
+    toWrite = setOff(toWrite);
   }
 
+  //write control
   toWrite = ~toWrite; //I used 1 for on 0 for off but that's wrong.
   // Serial.println(fanForced);
   // Serial.println(heat);
@@ -279,11 +369,11 @@ void reportState(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/request", TOPIC);
   sprintf(buf, "{\"TargetTemp\":");
   itoa(targetTemp, buf + strlen(buf), 10);
-  sprintf(buf + strlen(buf), "\", \"requested\":\"%s\", \"fan\":\"%s\"}", (!heat && !cool) ? "OFF" : heat ? "HEAT" : "COOL", fanForced ? "ON" : "AUTO");
+  sprintf(buf + strlen(buf), ", \"requested\":\"%s\", \"fan\":\"%s\"}", (!heat && !cool) ? "OFF" : heat ? "HEAT" : "COOL", fanForced ? "ON" : "AUTO");
   client->publish(topicBuf, buf);
 
   sprintf(topicBuf, "tele/%s/output", TOPIC);
-  sprintf(buf, "{\"output\":\"%s\", \"fan\":\"%s\"}", !enabled ? "OFF" : heatCool ? "COOL" : "HEAT", fanForced ? "ON" : "AUTO");
+  sprintf(buf, "{\"output\":\"%s\", \"fan\":\"%s\", \"swing\":%d}", !enabled ? "OFF" : heatCool ? "COOL" : "HEAT", fan ? "ON" : "OFF", swing);
   client->publish(topicBuf, buf);
 }
 
@@ -292,6 +382,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   //    target temp
   //    mode: heat|cool|off
   //    fan: auto|on
+  //    swing: uint8_t
   if (strcmp(topic, "target") == 0) {
     targetTemp = atoi((char*)payload);
     if(targetTemp < MIN_TEMP) {
@@ -308,14 +399,20 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     if(strncmp((char*)payload, "heat", 4) == 0) {
       heat = true;
       cool = false;
+      EEPROM.write(0, EEPROM_HEAT);
+      EEPROM.commit();
       nextTimeout = millis() + timeoutInterval;
     } else if(strncmp((char*)payload, "cool", 4) == 0) {
       heat = false;
       cool = true;
+      EEPROM.write(0, EEPROM_COOL);
+      EEPROM.commit();
       nextTimeout = millis() + timeoutInterval;
     } else if(strncmp((char*)payload, "off", 3) == 0) {
       heat = false;
       cool = false;
+      EEPROM.write(0, EEPROM_OFF);
+      EEPROM.commit();
       nextTimeout = millis() + timeoutInterval;
     } else {
       sprintf(topicBuf, "stat/%s/mode", TOPIC);
@@ -332,6 +429,19 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     } else {
       sprintf(topicBuf, "stat/%s/fan", TOPIC);
       client->publish(topicBuf, "bad command");
+    }
+  } else if (strcmp(topic, "swing") == 0) {
+    uint8_t newSwing = atoi((char*)payload);
+    if(newSwing <= 3 && newSwing >= 0) {
+      swing = newSwing;
+      EEPROM.write(1, swing);
+      EEPROM.commit();
+      sprintf(topicBuf, "stat/%s/swing", TOPIC);
+      sprintf(buf, "%d", swing);
+      client->publish(topicBuf, buf);
+    } else {
+      sprintf(topicBuf, "stat/%s/what", TOPIC);
+      client->publish(topicBuf, "new swing out of range 0-3");
     }
   } else {
     sprintf(topicBuf, "stat/%s/what", TOPIC);
@@ -352,7 +462,7 @@ void connectSuccess(PubSubClient* client, char* ip) {
 void setup() {
   Serial.begin(115200);
 
-  EEPROM.begin(1);
+  EEPROM.begin(2);
 
   resetState();
 
@@ -387,6 +497,9 @@ void setup() {
   i2cLEDs.write8(0b00000101);
   delay(100);
   i2cLEDs.write8(0xFF);
+
+  //Sane defaults!
+  fan = false;
 }
 
 
@@ -408,6 +521,13 @@ void loop() {
   if( (long)( millis() - nextTimeout ) >= 0) {
     nextTimeout = millis() + timeoutInterval;
     resetState();
+  }
+  if(fanOnTime != 0 && (long)( millis() - fanOnTime ) >= 0) {
+    Serial.println("fanOnTime setDirty");
+    stateDirty = true;
+  }
+  if(fanOffTime != 0 && (long)( millis() - fanOffTime ) >= 0) {
+    stateDirty = true;
   }
 
   //mqtt loop called before this
