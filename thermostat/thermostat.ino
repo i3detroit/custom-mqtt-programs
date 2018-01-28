@@ -345,12 +345,16 @@ void handleButton(int button) {
 }
 
 void display() {
-  itoa(currentTemp, buf, 10);
+  itoa(celsiusToFahrenheit(currentTemp), buf, 10);
   u8g2.clearBuffer();
   u8g2.drawStr(0, 50, buf);
-  itoa(targetTemp, buf, 10);
+  itoa(celsiusToFahrenheit(targetTemp), buf, 10);
   u8g2.drawStr(0, 116, buf);
   u8g2.sendBuffer();
+}
+
+int celsiusToFahrenheit(int temp) {
+	celsiusToFahrenheit = round((1.8*temp)+32)
 }
 
 void readTemp() {
