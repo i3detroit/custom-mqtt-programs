@@ -45,11 +45,7 @@
 #define MIN_TEMP 5
 #define MAX_TEMP 30
 
-// delay between heat on/off and fan on/off
-// fan lags behind heat
-#define FAN_DELAY 42*1000
-
-#define FAN_CONTROL 5 //turn on fan, 0 is on
+#define FAN_CONTROL 5 //force on fan, 0 is on. If 1, is auto, furnace will tunr on fan
 #define ENABLE_CONTROL 6 //enable/disable heat/cool
 #define SELECT_CONTROL 7 //heat:0 cool: 1
 
@@ -98,9 +94,6 @@ unsigned long readInterval = 1000UL;
 unsigned long nextTimeout = 0UL;
 unsigned long timeoutInterval = 1000*3*60*60;
 
-unsigned long fanOnTime = 0UL;
-unsigned long fanOffTime = 0UL;
-
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R3, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ 5, /* data=*/ 4);
 Adafruit_BME280 bme;
 
@@ -117,7 +110,7 @@ bool cool;
 //Currently outputting
 bool enabled;
 bool heatCool;
-bool fan;
+bool currentFanForced;
 
 bool displayDirty;
 bool stateDirty;
@@ -168,7 +161,6 @@ void resetState() {
   fanForced = false;
   displayDirty = true;
   stateDirty = true;
-  fan = false;
 }
 
 uint8_t setHeat(uint8_t toWrite) {
@@ -177,10 +169,6 @@ uint8_t setHeat(uint8_t toWrite) {
   }
   enabled = true;
   heatCool = 0;
-  fanOffTime = 0;
-  if(!fanForced && fanOnTime == 0) {
-    fanOnTime = millis() + FAN_DELAY;
-  }
   toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
   toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 1);//0 is heat but this is inverted
     return toWrite;
@@ -192,10 +180,6 @@ uint8_t setCool(uint8_t toWrite) {
   }
   enabled = true;
   heatCool = 1;
-  fanOnTime = 0;
-  if(!fanForced && fan && fanOffTime == 0) {
-    fanOffTime = millis() + FAN_DELAY;
-  }
   toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
   toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 0);//0 is heat but this is inverted
   return toWrite;
@@ -205,16 +189,11 @@ uint8_t setOff(uint8_t toWrite) {
     mqttDirty = true;
   }
   enabled = false;
-  fanOnTime = 0;
-  if(!fanForced && fan && fanOffTime == 0) {
-    fanOffTime = millis() + FAN_DELAY;
-  }
   return change_bit(toWrite, 7-ENABLE_CONTROL, 0);
 }
 
 void doControl() {
   uint8_t toWrite = 0;
-
 
   //status lights
   toWrite = change_bit(toWrite, 7-LED_FAN_ON, fanForced);
@@ -222,27 +201,8 @@ void doControl() {
   toWrite = change_bit(toWrite, 7-LED_HEAT, heat);
   toWrite = change_bit(toWrite, 7-LED_COOL, cool);
   toWrite = change_bit(toWrite, 7-LED_OFF, !heat && !cool);
-
-  // fan control
-  if(fanOnTime != 0 && (long)( millis() - fanOnTime ) >= 0) {
-    fanOnTime = 0;
-    fan = true;
-    mqttDirty = true;
-  }
-  if(fanOffTime != 0 && (long)( millis() - fanOffTime ) >= 0) {
-    fanOffTime = 0;
-    fan = false;
-    mqttDirty = true;
-  }
-  if(fanForced && !fan) {
-    fan = true;
-    mqttDirty = true;
-  } else if(!fanForced && !enabled && fan) {
-    //not forcing fan, and not heating/cooling
-    fan = false;
-    mqttDirty = true;
-  }
-  toWrite = change_bit(toWrite, 7-FAN_CONTROL, fan);
+  //force fan on
+  toWrite = change_bit(toWrite, 7-FAN_CONTROL, fanForced);
 
   // heating logic
   /*
@@ -298,6 +258,7 @@ void doControl() {
   // Serial.println("\n");
   i2cLEDs.write8(toWrite);
 }
+
 void handleButton(int button) {
   nextTimeout = millis() + timeoutInterval;
   stateDirty = true;
@@ -373,7 +334,7 @@ void reportState(PubSubClient *client) {
   client->publish(topicBuf, buf);
 
   sprintf(topicBuf, "tele/%s/output", TOPIC);
-  sprintf(buf, "{\"output\":\"%s\", \"fan\":\"%s\", \"swing\":%d}", !enabled ? "OFF" : heatCool ? "COOL" : "HEAT", fan ? "ON" : "OFF", swing);
+  sprintf(buf, "{\"output\":\"%s\", \"fan\":\"%s\", \"swing\":%d}", !enabled ? "OFF" : heatCool ? "COOL" : "HEAT", fanForced ? "ON" : "AUTO", swing);
   client->publish(topicBuf, buf);
 }
 
@@ -497,9 +458,6 @@ void setup() {
   i2cLEDs.write8(0b00000101);
   delay(100);
   i2cLEDs.write8(0xFF);
-
-  //Sane defaults!
-  fan = false;
 }
 
 
@@ -521,13 +479,6 @@ void loop() {
   if( (long)( millis() - nextTimeout ) >= 0) {
     nextTimeout = millis() + timeoutInterval;
     resetState();
-  }
-  if(fanOnTime != 0 && (long)( millis() - fanOnTime ) >= 0) {
-    Serial.println("fanOnTime setDirty");
-    stateDirty = true;
-  }
-  if(fanOffTime != 0 && (long)( millis() - fanOffTime ) >= 0) {
-    stateDirty = true;
   }
 
   //mqtt loop called before this
