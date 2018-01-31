@@ -6,7 +6,7 @@
 #include "mqtt-wrapper.h"
 
 #ifndef NAME
-#define NAME "bumblebee_status_lights"
+#define NAME "bumblebee-laser-status-lights"
 #endif
 
 #ifndef TOPIC
@@ -29,6 +29,11 @@
 #define MQTT_PORT 1883
 #endif
 
+//this part didn't work, DEVICE didn't get replaced in strings
+#ifndef DEVICE
+#define DEVICE bumblebee
+#endif
+
 #define PIXEL_PIN     13 //nodemcu/d1 mini D7
 #define NUM_PIXELS    8
 
@@ -49,7 +54,12 @@ struct mqtt_wrapper_options mqtt_options;
 bool chillerOn = FALSE;
 bool compressorOn = FALSE;
 bool ventFanOn = FALSE;
-bool ventFanGateOpen = FALSE; 
+bool ventFanGateOpen = FALSE;
+bool laserOn = FALSE;
+
+int x = 0;
+
+char topicBuf[128];
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
   if (strcmp(topic, "stat/i3/inside/laser-zone/bumblebee/chiller/POWER") == 0) {
@@ -84,11 +94,22 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       // blast gate is open
       ventFanGateOpen = TRUE;
     }
+  } else if (strcmp(topic, "stat/i3/inside/laser-zone/bumblebee/POWER") == 0) {
+    if ((char)payload[0] == '0' || (char)payload[1] == 'F') {
+      // chiller is off
+      laserOn = FALSE;
+      Serial.print("laser is on");
+    } else if ((char)payload[0] == '1' || (char)payload[1] == 'N') {
+      // chiller is on
+      laserOn = TRUE;
+      Serial.print("laser is off");
+    }
   }
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {
   client->subscribe("stat/i3/inside/laser-zone/bumblebee/#");
+  Serial.print("stat/i3/inside/laser-zone/bumblebee/#");
   client->subscribe("stat/i3/inside/laser-zone/vent-fan/POWER");
   client->subscribe("stat/i3/inside/infrastructure/air-compressor/POWER");
   client->publish("cmnd/i3/inside/laser-zone/vent-fan/POWER", "");
@@ -119,33 +140,39 @@ void connectedLoop(PubSubClient* client) {
 }
 
 void loop() {
-  if (chillerOn) {
-    pixels.setPixelColor(7,ledBlue);
-    pixels.setPixelColor(6,ledOff);
-  } else if (!chillerOn) {
-    pixels.setPixelColor(7,ledOff);
-    pixels.setPixelColor(6,ledRed);
-  }
-  if (compressorOn) {
-    pixels.setPixelColor(5,ledBlue);
-    pixels.setPixelColor(4,ledOff);
-  } else if (!compressorOn) {
-    pixels.setPixelColor(5,ledOff);
-    pixels.setPixelColor(4,ledRed);
-  }
-  if (ventFanOn) {
-    pixels.setPixelColor(3,ledBlue);
-    pixels.setPixelColor(2,ledOff);
-  } else if (!ventFanOn) {
-    pixels.setPixelColor(3,ledOff);
-    pixels.setPixelColor(2,ledRed);
-  }
-  if (ventFanGateOpen) {
-    pixels.setPixelColor(1,ledBlue);
-    pixels.setPixelColor(0,ledOff);
-  } else if (!ventFanGateOpen) {
-    pixels.setPixelColor(1,ledOff);
-    pixels.setPixelColor(0,ledRed);
+  if (laserOn) {
+    if (chillerOn) {
+      pixels.setPixelColor(7,ledBlue);
+      pixels.setPixelColor(6,ledOff);
+    } else if (!chillerOn) {
+      pixels.setPixelColor(7,ledOff);
+      pixels.setPixelColor(6,ledRed);
+    }
+    if (compressorOn) {
+      pixels.setPixelColor(5,ledBlue);
+      pixels.setPixelColor(4,ledOff);
+    } else if (!compressorOn) {
+      pixels.setPixelColor(5,ledOff);
+      pixels.setPixelColor(4,ledRed);
+    }
+    if (ventFanOn) {
+      pixels.setPixelColor(3,ledBlue);
+      pixels.setPixelColor(2,ledOff);
+    } else if (!ventFanOn) {
+      pixels.setPixelColor(3,ledOff);
+      pixels.setPixelColor(2,ledRed);
+    }
+    if (ventFanGateOpen) {
+      pixels.setPixelColor(1,ledBlue);
+      pixels.setPixelColor(0,ledOff);
+    } else if (!ventFanGateOpen) {
+      pixels.setPixelColor(1,ledOff);
+      pixels.setPixelColor(0,ledRed);
+    }
+  } else if (!laserOn) {
+    for (x = 0; x < NUM_PIXELS; x++) {
+      pixels.setPixelColor(x,ledOff);
+    }
   }
   if (millis() - millisLast >= delayVal) {
     pixels.show();
