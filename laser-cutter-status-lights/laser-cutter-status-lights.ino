@@ -94,7 +94,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       // blast gate is open
       ventFanGateOpen = TRUE;
     }
-  } else if (strcmp(topic, "stat/i3/inside/laser-zone/bumblebee/POWER") == 0) {
+  } else if (strcmp(topic, "stat/i3/inside/laser-zone/bumblebee/laser/POWER") == 0) {
     if ((char)payload[0] == '0' || (char)payload[1] == 'F') {
       // chiller is off
       laserOn = FALSE;
@@ -109,7 +109,6 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
 
 void connectSuccess(PubSubClient* client, char* ip) {
   client->subscribe("stat/i3/inside/laser-zone/bumblebee/#");
-  Serial.print("stat/i3/inside/laser-zone/bumblebee/#");
   client->subscribe("stat/i3/inside/laser-zone/vent-fan/POWER");
   client->subscribe("stat/i3/inside/infrastructure/air-compressor/POWER");
   client->publish("cmnd/i3/inside/laser-zone/vent-fan/POWER", "");
