@@ -1,0 +1,8 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP UG-2864HSWEG01
+D 128x64 OLED SSD1306
+K oled, SSD1306,display
+$ENDCMP
+#
+#End Doc Library
