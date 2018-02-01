@@ -101,8 +101,8 @@ Adafruit_BME280 bme;
 //swing temp how far above or below the target has to go to actually control
 uint8_t swing;
 
-int targetTemp;
-int currentTemp;
+float targetTemp;
+float currentTemp;
 bool fanForced;
 bool heat;
 bool cool;
