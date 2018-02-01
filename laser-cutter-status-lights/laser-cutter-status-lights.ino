@@ -30,7 +30,7 @@
 #endif
 
 #ifndef DEVICE
-#define DEVICE new
+#define DEVICE "new"
 #endif
 
 #define PIXEL_PIN     13 //nodemcu/d1 mini D7
@@ -57,8 +57,6 @@ bool ventFanGateOpen = FALSE;
 bool laserOn = FALSE;
 
 int x = 0;
-
-char topicBuf[128];
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
   if (strcmp(topic, "stat/i3/inside/laser-zone/"DEVICE"/chiller/POWER") == 0) {
@@ -176,6 +174,6 @@ void loop() {
     pixels.show();
     millisLast = millis();
   }
-  
+
   loop_mqtt();
 }
