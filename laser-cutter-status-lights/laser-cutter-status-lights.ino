@@ -6,11 +6,11 @@
 #include "mqtt-wrapper.h"
 
 #ifndef NAME
-#define NAME "bumblebee-laser-status-lights"
+#define NAME "new-laser-status-lights"
 #endif
 
 #ifndef TOPIC
-#define TOPIC "i3/inside/laser-zone/bumblebee/status_lights"
+#define TOPIC "i3/inside/laser-zone/new/status_lights"
 #endif
 
 #ifndef WIFI_SSID
@@ -29,9 +29,8 @@
 #define MQTT_PORT 1883
 #endif
 
-//this part didn't work, DEVICE didn't get replaced in strings
 #ifndef DEVICE
-#define DEVICE bumblebee
+#define DEVICE "new"
 #endif
 
 #define PIXEL_PIN     13 //nodemcu/d1 mini D7
@@ -59,10 +58,8 @@ bool laserOn = FALSE;
 
 int x = 0;
 
-char topicBuf[128];
-
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  if (strcmp(topic, "stat/i3/inside/laser-zone/bumblebee/chiller/POWER") == 0) {
+  if (strcmp(topic, "stat/i3/inside/laser-zone/"DEVICE"/chiller/POWER") == 0) {
     if ((char)payload[0] == '0' || (char)payload[1] == 'F') {
       // chiller is off
       chillerOn = FALSE;
@@ -86,7 +83,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       // vent fan is on
       ventFanOn = TRUE;
     }
-  } else if (strcmp(topic, "stat/i3/inside/laser-zone/bumblebee/vent-fan-gate") == 0) {
+  } else if (strcmp(topic, "stat/i3/inside/laser-zone/"DEVICE"/vent-fan-gate") == 0) {
     if ((char)payload[0] == 'c') {
       // blast gate is closed
       ventFanGateOpen = FALSE;
@@ -94,7 +91,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       // blast gate is open
       ventFanGateOpen = TRUE;
     }
-  } else if (strcmp(topic, "stat/i3/inside/laser-zone/bumblebee/laser/POWER") == 0) {
+  } else if (strcmp(topic, "stat/i3/inside/laser-zone/"DEVICE"/laser/POWER") == 0) {
     if ((char)payload[0] == '0' || (char)payload[1] == 'F') {
       // chiller is off
       laserOn = FALSE;
@@ -108,12 +105,12 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {
-  client->subscribe("stat/i3/inside/laser-zone/bumblebee/#");
+  client->subscribe("stat/i3/inside/laser-zone/"DEVICE"/#");
   client->subscribe("stat/i3/inside/laser-zone/vent-fan/POWER");
   client->subscribe("stat/i3/inside/infrastructure/air-compressor/POWER");
   client->publish("cmnd/i3/inside/laser-zone/vent-fan/POWER", "");
   client->publish("cmnd/i3/inside/infrastructure/air-compressor/POWER", "");
-  client->publish("cmnd/i3/inside/laser-zone/bumblebee/chiller/POWER", "");
+  client->publish("cmnd/i3/inside/laser-zone/"DEVICE"/chiller/POWER", "");
   client->publish("cmnd/i3/inside/laser-zone/blast-gate-monitor/query", "");
 }
 
@@ -177,6 +174,6 @@ void loop() {
     pixels.show();
     millisLast = millis();
   }
-  
+
   loop_mqtt();
 }
