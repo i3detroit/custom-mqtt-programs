@@ -51,6 +51,8 @@ unsigned long debounce[] = {0,0,0,0,0,0,0};
 unsigned long debounce_time = 50;
 
 void lightsOn(PubSubClient* client) { // pin 4
+  sprintf(buf, "info/%s/pressed", TOPIC);
+  client->publish(buf,"lightsOn");
   client->publish("cmnd/i3/inside/lights/029/POWER", "1");
   client->publish("cmnd/i3/inside/lights/030/POWER", "1");
   client->publish("cmnd/i3/inside/lights/031/POWER", "1");
@@ -60,6 +62,8 @@ void lightsOn(PubSubClient* client) { // pin 4
   client->publish("cmnd/i3/inside/lights/035/POWER", "1");
 }
 void lightsOff(PubSubClient* client) { // pin 5
+  sprintf(buf, "info/%s/pressed", TOPIC);
+  client->publish(buf,"lightsOff");
   client->publish("cmnd/i3/inside/lights/029/POWER", "0");
   client->publish("cmnd/i3/inside/lights/030/POWER", "0");
   client->publish("cmnd/i3/inside/lights/031/POWER", "0");
@@ -69,9 +73,13 @@ void lightsOff(PubSubClient* client) { // pin 5
   client->publish("cmnd/i3/inside/lights/035/POWER", "0");
 }
 void fanOn(PubSubClient* client) { // pin 0
+  sprintf(buf, "info/%s/pressed", TOPIC);
+  client->publish(buf,"fanOn");
   client->publish("cmnd/i3/inside/machine-shop/ceiling-fan/POWER", "1");
 }
 void fanOff(PubSubClient* client) { // pin 2
+  sprintf(buf, "info/%s/pressed", TOPIC);
+  client->publish(buf,"fanOff");
   client->publish("cmnd/i3/inside/machine-shop/ceiling-fan/POWER", "0");
 }
 

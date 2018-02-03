@@ -209,6 +209,9 @@ void connectedLoop(PubSubClient* client) {
     if (button_state[i] != button_state_last[i] && now - debounce[i] > debounce_time) {
       //If the button is pressed, call funciton
       if (button_state[i] == LOW) {
+        sprintf(topicBuf, "info/%s/pressed", TOPIC);
+        sprintf(buf, "pressed %d", i);
+        client->publish(topicBuf,buf);
         if(i < 3) {
           sprintf(topicBuf, "cmnd/%s/POWER", TOPIC_0_TOPIC);
         } else if(i < 6) {
