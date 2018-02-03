@@ -49,12 +49,16 @@ const int debounce_time = 50;
 
 
 void eastOn(PubSubClient* client) {
+  sprintf(buf, "stat/%s/pressed", TOPIC);
+  client->publish(buf,"eastOn");
   client->publish("cmnd/i3/inside/lights/001/POWER", "1");
   client->publish("cmnd/i3/inside/lights/002/POWER", "1");
   client->publish("cmnd/i3/inside/lights/003/POWER", "1");
   client->publish("cmnd/i3/inside/lights/004/POWER", "1");
 }
 void centerOn(PubSubClient* client) {
+  sprintf(buf, "stat/%s/pressed", TOPIC);
+  client->publish(buf,"centerOn");
   client->publish("cmnd/i3/inside/lights/005/POWER", "1");
   client->publish("cmnd/i3/inside/lights/006/POWER", "1");
   client->publish("cmnd/i3/inside/lights/007/POWER", "1");
@@ -62,6 +66,8 @@ void centerOn(PubSubClient* client) {
   client->publish("cmnd/i3/inside/lights/009/POWER", "1");
 }
 void westOn(PubSubClient* client) {
+  sprintf(buf, "stat/%s/pressed", TOPIC);
+  client->publish(buf,"westOn");
   client->publish("cmnd/i3/inside/lights/010/POWER", "1");
   client->publish("cmnd/i3/inside/lights/011/POWER", "1");
   client->publish("cmnd/i3/inside/lights/012/POWER", "1");
@@ -69,12 +75,16 @@ void westOn(PubSubClient* client) {
   client->publish("cmnd/i3/inside/lights/014/POWER", "1");
 }
 void eastOff(PubSubClient* client) {
+  sprintf(buf, "stat/%s/pressed", TOPIC);
+  client->publish(buf,"eastOff");
   client->publish("cmnd/i3/inside/lights/001/POWER", "0");
   client->publish("cmnd/i3/inside/lights/002/POWER", "0");
   client->publish("cmnd/i3/inside/lights/003/POWER", "0");
   client->publish("cmnd/i3/inside/lights/004/POWER", "0");
 }
 void centerOff(PubSubClient* client) {
+  sprintf(buf, "stat/%s/pressed", TOPIC);
+  client->publish(buf,"centerOff");
   client->publish("cmnd/i3/inside/lights/005/POWER", "0");
   client->publish("cmnd/i3/inside/lights/006/POWER", "0");
   client->publish("cmnd/i3/inside/lights/007/POWER", "0");
@@ -82,6 +92,8 @@ void centerOff(PubSubClient* client) {
   client->publish("cmnd/i3/inside/lights/009/POWER", "0");
 }
 void westOff(PubSubClient* client) {
+  sprintf(buf, "stat/%s/pressed", TOPIC);
+  client->publish(buf,"westOff");
   client->publish("cmnd/i3/inside/lights/010/POWER", "0");
   client->publish("cmnd/i3/inside/lights/011/POWER", "0");
   client->publish("cmnd/i3/inside/lights/012/POWER", "0");

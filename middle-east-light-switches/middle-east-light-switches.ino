@@ -51,6 +51,8 @@ int debounce[] = {0,0,0,0,0,0,0};
 const int debounce_time = 50;
 
 void westOn(PubSubClient* client) { // pin 4
+  sprintf(buf, "stat/%s/pressed", TOPIC);
+  client->publish(buf,"westOn");
   client->publish("cmnd/i3/inside/lights/020/POWER", "1");
   client->publish("cmnd/i3/inside/lights/021/POWER", "1");
   client->publish("cmnd/i3/inside/lights/022/POWER", "1");
@@ -60,6 +62,8 @@ void westOn(PubSubClient* client) { // pin 4
   client->publish("cmnd/i3/inside/lights/026/POWER", "1");
 }
 void westOff(PubSubClient* client) { // pin 5
+  sprintf(buf, "stat/%s/pressed", TOPIC);
+  client->publish(buf,"westOff");
   client->publish("cmnd/i3/inside/lights/020/POWER", "0");
   client->publish("cmnd/i3/inside/lights/021/POWER", "0");
   client->publish("cmnd/i3/inside/lights/022/POWER", "0");
@@ -69,6 +73,8 @@ void westOff(PubSubClient* client) { // pin 5
   client->publish("cmnd/i3/inside/lights/026/POWER", "0");
 }
 void eastOn(PubSubClient* client) { // pin 0
+  sprintf(buf, "stat/%s/pressed", TOPIC);
+  client->publish(buf,"eastOn");
   client->publish("cmnd/i3/inside/lights/015/POWER", "1");
   client->publish("cmnd/i3/inside/lights/016/POWER", "1");
   client->publish("cmnd/i3/inside/lights/017/POWER", "1");
@@ -76,6 +82,8 @@ void eastOn(PubSubClient* client) { // pin 0
   client->publish("cmnd/i3/inside/lights/019/POWER", "1");
 }
 void eastOff(PubSubClient* client) { // pin 2
+  sprintf(buf, "stat/%s/pressed", TOPIC);
+  client->publish(buf,"eastOff");
   client->publish("cmnd/i3/inside/lights/015/POWER", "0");
   client->publish("cmnd/i3/inside/lights/016/POWER", "0");
   client->publish("cmnd/i3/inside/lights/017/POWER", "0");
@@ -83,14 +91,11 @@ void eastOff(PubSubClient* client) { // pin 2
   client->publish("cmnd/i3/inside/lights/019/POWER", "0");
 }
 
-
-
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
 }
 
 void connectSuccess(PubSubClient* client, char* ip) {
 }
-
 
 void setup() {
   mqtt_options.connectedLoop = connectedLoop;
