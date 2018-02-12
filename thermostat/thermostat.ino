@@ -32,6 +32,16 @@
 #define MQTT_PORT 1883
 #endif
 
+#define DEBUG
+
+#ifdef DEBUG
+# define DEBUG_PRINT(x) Serial.print(x);
+# define DEBUG_PRINTLN(x) Serial.println(x);
+#else
+# define DEBUG_PRINT(x) do {} while (0)
+# define DEBUG_PRINTLN(x) do {} while (0)
+#endif
+
 //magic numbers stored in eeprom to set boot state
 #define EEPROM_OFF 0
 #define EEPROM_COOL 1
@@ -116,19 +126,6 @@ bool displayDirty;
 bool stateDirty;
 bool mqttDirty;
 
-char *ftoa(char *a, double f, int precision) {
-  long p[] = {
-    0,10,100,1000,10000,100000,1000000,10000000,100000000  };
-
-  char *ret = a;
-  long heiltal = (long)f;
-  itoa(heiltal, a, 10);
-  while (*a != '\0') a++;
-  *a++ = '.';
-  long decimal = abs((long)((f - heiltal) * p[precision]));
-  itoa(decimal, a, 10);
-  return ret;
-}
 
 uint8_t change_bit(uint8_t val, uint8_t num, bool bitval) {
   return (val & ~(1<<num)) | (bitval << num);
@@ -264,39 +261,47 @@ void handleButton(int button) {
   stateDirty = true;
   switch(button) {
     case RESET:
+      DEBUG_PRINTLN("button RESET");
       resetState();
       break;
     case FAN_ON:
+      DEBUG_PRINTLN("button FAN_ON");
       fanForced = true;
       break;
     case FAN_AUTO:
+      DEBUG_PRINTLN("button FAN_AUTO");
       fanForced = false;
       break;
     case TEMP_UP:
+      DEBUG_PRINTLN("button TEMP_UP");
       if(++targetTemp > MAX_TEMP) {
         targetTemp = MAX_TEMP;
       }
       displayDirty = true;
       break;
     case TEMP_DOWN:
+      DEBUG_PRINTLN("button TEMP_DOWN");
       if(--targetTemp < MIN_TEMP) {
         targetTemp = MIN_TEMP;
       }
       displayDirty = true;
       break;
     case HEAT:
+      DEBUG_PRINTLN("button HEAT");
       EEPROM.write(0, EEPROM_HEAT);
       EEPROM.commit();
       heat = true;
       cool = false;
       break;
     case OFF:
+      DEBUG_PRINTLN("button OFF");
       EEPROM.write(0, EEPROM_OFF);
       EEPROM.commit();
       heat = false;
       cool = false;
       break;
     case COOL:
+      DEBUG_PRINTLN("button COOL");
       EEPROM.write(0, EEPROM_COOL);
       EEPROM.commit();
       heat = false;
@@ -316,13 +321,21 @@ void display() {
 
 void readTemp() {
   currentTemp = bme.readTemperature();
-  ftoa(tempBuf, bme.readTemperature(), 2);
+  dtostrf(bme.readTemperature(), 0, 2,tempBuf);
   displayDirty = true;
   stateDirty = true;
+
+  DEBUG_PRINT("read: ");
+  DEBUG_PRINTLN(currentTemp);
 }
+
 void reportState(PubSubClient *client) {
-  ftoa(pressureBuf, bme.readPressure(), 2);
-  ftoa(humidityBuf, bme.readHumidity(), 1);
+  dtostrf(bme.readPressure(), 0, 2, pressureBuf);
+  dtostrf(bme.readHumidity(), 0, 1, humidityBuf);
+
+  DEBUG_PRINT("reported: ");
+  DEBUG_PRINTLN(tempBuf);
+
   sprintf(topicBuf, "tele/%s/bme280", TOPIC);
   sprintf(buf, "{\"Temperature\":%s, \"Pressure\":%s, \"Humidity\":%s}", tempBuf, pressureBuf, humidityBuf);
   client->publish(topicBuf, buf);
