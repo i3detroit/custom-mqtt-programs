@@ -42,20 +42,6 @@ unsigned long statusInterval = 60000UL;
 
 struct mqtt_wrapper_options mqtt_options;
 
-char *ftoa(char *a, double f, int precision) {
-  long p[] = {
-    0,10,100,1000,10000,100000,1000000,10000000,100000000  };
-
-  char *ret = a;
-  long heiltal = (long)f;
-  itoa(heiltal, a, 10);
-  while (*a != '\0') a++;
-  *a++ = '.';
-  long decimal = abs((long)((f - heiltal) * p[precision]));
-  itoa(decimal, a, 10);
-  return ret;
-}
-
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
   Serial.print("Message arrived [");
   Serial.print(topic);
@@ -94,11 +80,11 @@ void connectedLoop(PubSubClient* client) {
     status = millis() + statusInterval;
 
     sprintf(topicBuf, "tele/%s/bme280", TOPIC);
-    ftoa(floatBuf, bme.readTemperature(), 2);
+    dtostrf(bme.readTemperature(), 0, 2,floatBuf);
     sprintf(buf, "{\"Temperature\":%s, \"Pressure\":", floatBuf);
-    ftoa(floatBuf, bme.readPressure(), 2);
+    dtostrf(bme.readPressure(), 0, 2,floatBuf);
     sprintf(buf + strlen(buf), "%s, \"Humidity\":", floatBuf);
-    ftoa(floatBuf, bme.readHumidity(), 1);
+    dtostrf(bme.readHumidity(), 0, 2,floatBuf);
     sprintf(buf + strlen(buf), "%s}", floatBuf);
     client->publish(topicBuf, buf);
     Serial.println("bme280");
@@ -116,9 +102,9 @@ void connectedLoop(PubSubClient* client) {
      */
 
     sprintf(topicBuf, "tele/%s/dht22", TOPIC);
-    ftoa(floatBuf, dht.readTemperature(), 2);
+    dtostrf(dht.readTemperature(), 0, 2, floatBuf);
     sprintf(buf, "{\"Temperature\":%s, \"Humidity\":", floatBuf);
-    ftoa(floatBuf, dht.readHumidity(), 2);
+    dtostrf(dht.readHumidity(), 0, 2, floatBuf);
     sprintf(buf + strlen(buf), "%s}", floatBuf);
     Serial.println("dht22");
     Serial.println(buf);
