@@ -1,5 +1,11 @@
 EESchema-DOCLIB  Version 2.0
 #
+$CMP OLED_I2C
+D Generic connector, single row, 01x04
+K connector
+F ~
+$ENDCMP
+#
 $CMP UG-2864HSWEG01
 D 128x64 OLED SSD1306
 K oled, SSD1306,display

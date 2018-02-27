@@ -1,0 +1,708 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<export version="D">
+  <design>
+    <source>/home/mark/projects/esp/custom-mqtt-programs/thermostat/thermostat/thermostat.sch</source>
+    <date>Fri 02 Mar 2018 10:14:42 PM EST</date>
+    <tool>Eeschema 4.0.7+dfsg1-1~bpo9+1</tool>
+    <sheet number="1" name="/" tstamps="/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>thermostat.sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+      </title_block>
+    </sheet>
+  </design>
+  <components>
+    <comp ref="U2">
+      <value>WeMos_mini</value>
+      <footprint>wemos_d1_mini:D1_mini_board</footprint>
+      <libsource lib="wemos_mini" part="WeMos_mini"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A6E52C3</tstamp>
+    </comp>
+    <comp ref="U3">
+      <value>MCP23017</value>
+      <footprint>Housings_DIP:DIP-28_W7.62mm</footprint>
+      <libsource lib="microchip" part="MCP23017"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A6E5EE0</tstamp>
+    </comp>
+    <comp ref="SW1">
+      <value>TEMP_UP</value>
+      <footprint>Buttons_Switches_THT:SW_PUSH_6mm</footprint>
+      <libsource lib="switches" part="SW_Push"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70F7A3</tstamp>
+    </comp>
+    <comp ref="SW2">
+      <value>TEMP_DOWN</value>
+      <footprint>Buttons_Switches_THT:SW_PUSH_6mm</footprint>
+      <libsource lib="switches" part="SW_Push"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70F7CD</tstamp>
+    </comp>
+    <comp ref="SW3">
+      <value>RESET</value>
+      <footprint>Buttons_Switches_THT:SW_PUSH_6mm</footprint>
+      <libsource lib="switches" part="SW_Push"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70F85B</tstamp>
+    </comp>
+    <comp ref="COOL2">
+      <value>SW_Push</value>
+      <footprint>Buttons_Switches_THT:SW_PUSH_6mm</footprint>
+      <libsource lib="switches" part="SW_Push"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70F88A</tstamp>
+    </comp>
+    <comp ref="OFF2">
+      <value>SW_Push</value>
+      <footprint>Buttons_Switches_THT:SW_PUSH_6mm</footprint>
+      <libsource lib="switches" part="SW_Push"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70F8B8</tstamp>
+    </comp>
+    <comp ref="HEAT2">
+      <value>SW_Push</value>
+      <footprint>Buttons_Switches_THT:SW_PUSH_6mm</footprint>
+      <libsource lib="switches" part="SW_Push"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70F93B</tstamp>
+    </comp>
+    <comp ref="FAN_AUTO2">
+      <value>SW_Push</value>
+      <footprint>Buttons_Switches_THT:SW_PUSH_6mm</footprint>
+      <libsource lib="switches" part="SW_Push"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70F975</tstamp>
+    </comp>
+    <comp ref="FAN_ON2">
+      <value>SW_Push</value>
+      <footprint>Buttons_Switches_THT:SW_PUSH_6mm</footprint>
+      <libsource lib="switches" part="SW_Push"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70F9AC</tstamp>
+    </comp>
+    <comp ref="COOL1">
+      <value>LED</value>
+      <footprint>LEDs:LED_D3.0mm</footprint>
+      <libsource lib="device" part="LED"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70FE7D</tstamp>
+    </comp>
+    <comp ref="OFF1">
+      <value>LED</value>
+      <footprint>LEDs:LED_D3.0mm</footprint>
+      <libsource lib="device" part="LED"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70FF13</tstamp>
+    </comp>
+    <comp ref="HEAT1">
+      <value>LED</value>
+      <footprint>LEDs:LED_D3.0mm</footprint>
+      <libsource lib="device" part="LED"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70FF8D</tstamp>
+    </comp>
+    <comp ref="FAN_AUTO1">
+      <value>LED</value>
+      <footprint>LEDs:LED_D3.0mm</footprint>
+      <libsource lib="device" part="LED"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A70FFD6</tstamp>
+    </comp>
+    <comp ref="FAN_ON1">
+      <value>LED</value>
+      <footprint>LEDs:LED_D3.0mm</footprint>
+      <libsource lib="device" part="LED"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A7100E6</tstamp>
+    </comp>
+    <comp ref="R3">
+      <value>120R</value>
+      <footprint>Resistors_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P2.54mm_Vertical</footprint>
+      <libsource lib="device" part="R"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A7105CE</tstamp>
+    </comp>
+    <comp ref="R4">
+      <value>120R</value>
+      <footprint>Resistors_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P2.54mm_Vertical</footprint>
+      <libsource lib="device" part="R"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A7106C0</tstamp>
+    </comp>
+    <comp ref="R5">
+      <value>120R</value>
+      <footprint>Resistors_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P2.54mm_Vertical</footprint>
+      <libsource lib="device" part="R"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A710717</tstamp>
+    </comp>
+    <comp ref="R6">
+      <value>120R</value>
+      <footprint>Resistors_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P2.54mm_Vertical</footprint>
+      <libsource lib="device" part="R"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A71076F</tstamp>
+    </comp>
+    <comp ref="R7">
+      <value>120R</value>
+      <footprint>Resistors_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P2.54mm_Vertical</footprint>
+      <libsource lib="device" part="R"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A7107CA</tstamp>
+    </comp>
+    <comp ref="R1">
+      <value>120R</value>
+      <footprint>Resistors_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P2.54mm_Vertical</footprint>
+      <libsource lib="device" part="R"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A71C5DE</tstamp>
+    </comp>
+    <comp ref="C1">
+      <value>4.7µF</value>
+      <footprint>Capacitors_THT:C_Disc_D3.8mm_W2.6mm_P2.50mm</footprint>
+      <libsource lib="device" part="C"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A71C656</tstamp>
+    </comp>
+    <comp ref="OLED1">
+      <value>CONN_01X07</value>
+      <footprint>Pin_Headers:Pin_Header_Straight_1x07_Pitch2.54mm</footprint>
+      <libsource lib="thermostat-cache" part="CONN_01X07"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A7782EC</tstamp>
+    </comp>
+    <comp ref="P2">
+      <value>CONN_01X04</value>
+      <footprint>Pin_Headers:Pin_Header_Straight_1x04_Pitch2.54mm</footprint>
+      <libsource lib="conn" part="Conn_01x04"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A778939</tstamp>
+    </comp>
+    <comp ref="U1">
+      <value>74HC04</value>
+      <footprint>Housings_DIP:DIP-14_W7.62mm</footprint>
+      <libsource lib="74xx" part="74HC04"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A99F8F5</tstamp>
+    </comp>
+    <comp ref="U4">
+      <value>74LS08</value>
+      <footprint>Housings_DIP:DIP-14_W7.62mm</footprint>
+      <libsource lib="74xx" part="74LS08"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A99FEFA</tstamp>
+    </comp>
+    <comp ref="P1">
+      <value>CONN_01X04</value>
+      <footprint>Pin_Headers:Pin_Header_Straight_1x04_Pitch2.54mm</footprint>
+      <libsource lib="conn" part="Conn_01x04"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A9A52A2</tstamp>
+    </comp>
+    <comp ref="DS1">
+      <value>OLED_I2C</value>
+      <footprint>mine:OLED_I2C</footprint>
+      <libsource lib="mine" part="OLED_I2C"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamp>5A9A6537</tstamp>
+    </comp>
+  </components>
+  <libparts>
+    <libpart lib="74xx" part="74HCT04">
+      <aliases>
+        <alias>74HC14</alias>
+        <alias>74HC04</alias>
+        <alias>74LS14</alias>
+      </aliases>
+      <description>Hex Inverseur</description>
+      <fields>
+        <field name="Reference">U</field>
+        <field name="Value">74HCT04</field>
+      </fields>
+      <pins>
+        <pin num="1" name="~" type="input"/>
+        <pin num="2" name="~" type="output"/>
+        <pin num="3" name="~" type="input"/>
+        <pin num="4" name="~" type="output"/>
+        <pin num="5" name="~" type="input"/>
+        <pin num="6" name="~" type="output"/>
+        <pin num="7" name="GND" type="power_in"/>
+        <pin num="8" name="~" type="output"/>
+        <pin num="9" name="~" type="input"/>
+        <pin num="10" name="~" type="output"/>
+        <pin num="11" name="~" type="input"/>
+        <pin num="12" name="~" type="output"/>
+        <pin num="13" name="~" type="input"/>
+        <pin num="14" name="VCC" type="power_in"/>
+      </pins>
+    </libpart>
+    <libpart lib="74xx" part="74LS08">
+      <aliases>
+        <alias>74LS09</alias>
+      </aliases>
+      <description>Quad And2</description>
+      <fields>
+        <field name="Reference">U</field>
+        <field name="Value">74LS08</field>
+      </fields>
+      <pins>
+        <pin num="1" name="~" type="input"/>
+        <pin num="2" name="~" type="input"/>
+        <pin num="3" name="~" type="output"/>
+        <pin num="4" name="~" type="input"/>
+        <pin num="5" name="~" type="input"/>
+        <pin num="6" name="~" type="output"/>
+        <pin num="7" name="GND" type="power_in"/>
+        <pin num="8" name="~" type="output"/>
+        <pin num="9" name="~" type="input"/>
+        <pin num="10" name="~" type="input"/>
+        <pin num="11" name="~" type="output"/>
+        <pin num="12" name="~" type="input"/>
+        <pin num="13" name="~" type="input"/>
+        <pin num="14" name="VCC" type="power_in"/>
+      </pins>
+    </libpart>
+    <libpart lib="device" part="C">
+      <description>Unpolarized capacitor</description>
+      <footprints>
+        <fp>C_*</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">C</field>
+        <field name="Value">C</field>
+      </fields>
+      <pins>
+        <pin num="1" name="~" type="passive"/>
+        <pin num="2" name="~" type="passive"/>
+      </pins>
+    </libpart>
+    <libpart lib="thermostat-cache" part="CONN_01X07">
+      <footprints>
+        <fp>Pin_Header_Straight_1X07</fp>
+        <fp>Pin_Header_Angled_1X07</fp>
+        <fp>Socket_Strip_Straight_1X07</fp>
+        <fp>Socket_Strip_Angled_1X07</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">P</field>
+        <field name="Value">CONN_01X07</field>
+      </fields>
+      <pins>
+        <pin num="1" name="P1" type="passive"/>
+        <pin num="2" name="P2" type="passive"/>
+        <pin num="3" name="P3" type="passive"/>
+        <pin num="4" name="P4" type="passive"/>
+        <pin num="5" name="P5" type="passive"/>
+        <pin num="6" name="P6" type="passive"/>
+        <pin num="7" name="P7" type="passive"/>
+      </pins>
+    </libpart>
+    <libpart lib="conn" part="Conn_01x04">
+      <description>Generic connector, single row, 01x04</description>
+      <docs>~</docs>
+      <footprints>
+        <fp>Connector*:*_??x*mm*</fp>
+        <fp>Connector*:*1x??x*mm*</fp>
+        <fp>Pin?Header?Straight?1X*</fp>
+        <fp>Pin?Header?Angled?1X*</fp>
+        <fp>Socket?Strip?Straight?1X*</fp>
+        <fp>Socket?Strip?Angled?1X*</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">J</field>
+        <field name="Value">Conn_01x04</field>
+      </fields>
+      <pins>
+        <pin num="1" name="Pin_1" type="passive"/>
+        <pin num="2" name="Pin_2" type="passive"/>
+        <pin num="3" name="Pin_3" type="passive"/>
+        <pin num="4" name="Pin_4" type="passive"/>
+      </pins>
+    </libpart>
+    <libpart lib="device" part="LED">
+      <description>LED generic</description>
+      <footprints>
+        <fp>LED*</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">D</field>
+        <field name="Value">LED</field>
+      </fields>
+      <pins>
+        <pin num="1" name="K" type="passive"/>
+        <pin num="2" name="A" type="passive"/>
+      </pins>
+    </libpart>
+    <libpart lib="microchip" part="MCP23017">
+      <description>16-Bit I/O Expander with I²C Interface (PDIP/SOIC/SSOP)</description>
+      <docs>http://ww1.microchip.com/downloads/en/DeviceDoc/20001952C.pdf</docs>
+      <footprints>
+        <fp>DIP-28_W7.62mm*</fp>
+        <fp>SOIC-28</fp>
+        <fp>SSOP-28</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">U</field>
+        <field name="Value">MCP23017</field>
+      </fields>
+      <pins>
+        <pin num="1" name="GPB0" type="BiDi"/>
+        <pin num="2" name="GPB1" type="BiDi"/>
+        <pin num="3" name="GPB2" type="BiDi"/>
+        <pin num="4" name="GPB3" type="BiDi"/>
+        <pin num="5" name="GPB4" type="BiDi"/>
+        <pin num="6" name="GPB5" type="BiDi"/>
+        <pin num="7" name="GPB6" type="BiDi"/>
+        <pin num="8" name="GPB7" type="BiDi"/>
+        <pin num="9" name="VCC" type="power_in"/>
+        <pin num="10" name="GND" type="power_in"/>
+        <pin num="12" name="SCL" type="input"/>
+        <pin num="13" name="SDA" type="BiDi"/>
+        <pin num="15" name="A0" type="input"/>
+        <pin num="16" name="A1" type="input"/>
+        <pin num="17" name="A2" type="input"/>
+        <pin num="18" name="~RESET" type="input"/>
+        <pin num="19" name="INTB" type="output"/>
+        <pin num="20" name="INTA" type="output"/>
+        <pin num="21" name="GPA0" type="BiDi"/>
+        <pin num="22" name="GPA1" type="BiDi"/>
+        <pin num="23" name="GPA2" type="BiDi"/>
+        <pin num="24" name="GPA3" type="BiDi"/>
+        <pin num="25" name="GPA4" type="BiDi"/>
+        <pin num="26" name="GPA5" type="BiDi"/>
+        <pin num="27" name="GPA6" type="BiDi"/>
+        <pin num="28" name="GPA7" type="BiDi"/>
+      </pins>
+    </libpart>
+    <libpart lib="mine" part="OLED_I2C">
+      <description>Generic connector, single row, 01x04</description>
+      <docs>~</docs>
+      <footprints>
+        <fp>Connector*:*_??x*mm*</fp>
+        <fp>Connector*:*1x??x*mm*</fp>
+        <fp>Pin?Header?Straight?1X*</fp>
+        <fp>Pin?Header?Angled?1X*</fp>
+        <fp>Socket?Strip?Straight?1X*</fp>
+        <fp>Socket?Strip?Angled?1X*</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">DS</field>
+        <field name="Value">OLED_I2C</field>
+      </fields>
+      <pins>
+        <pin num="1" name="GND" type="passive"/>
+        <pin num="2" name="VCC" type="power_in"/>
+        <pin num="3" name="SCL" type="passive"/>
+        <pin num="4" name="SDA" type="passive"/>
+      </pins>
+    </libpart>
+    <libpart lib="device" part="R">
+      <description>Resistor</description>
+      <footprints>
+        <fp>R_*</fp>
+        <fp>R_*</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">R</field>
+        <field name="Value">R</field>
+      </fields>
+      <pins>
+        <pin num="1" name="~" type="passive"/>
+        <pin num="2" name="~" type="passive"/>
+      </pins>
+    </libpart>
+    <libpart lib="switches" part="SW_Push">
+      <description>Push button switch, generic, two pins</description>
+      <fields>
+        <field name="Reference">SW</field>
+        <field name="Value">SW_Push</field>
+      </fields>
+      <pins>
+        <pin num="1" name="1" type="passive"/>
+        <pin num="2" name="2" type="passive"/>
+      </pins>
+    </libpart>
+    <libpart lib="wemos_mini" part="WeMos_mini">
+      <description>WeMos D1 mini</description>
+      <docs>http://www.wemos.cc/Products/d1_mini.html</docs>
+      <fields>
+        <field name="Reference">U</field>
+        <field name="Value">WeMos_mini</field>
+      </fields>
+      <pins>
+        <pin num="1" name="5V" type="power_in"/>
+        <pin num="2" name="GND" type="power_in"/>
+        <pin num="3" name="D4" type="BiDi"/>
+        <pin num="4" name="D3" type="BiDi"/>
+        <pin num="5" name="D2" type="BiDi"/>
+        <pin num="6" name="D1" type="BiDi"/>
+        <pin num="7" name="Rx" type="BiDi"/>
+        <pin num="8" name="Tx" type="BiDi"/>
+        <pin num="9" name="Rst" type="BiDi"/>
+        <pin num="10" name="A0" type="BiDi"/>
+        <pin num="11" name="D0" type="BiDi"/>
+        <pin num="12" name="D5" type="BiDi"/>
+        <pin num="13" name="D6" type="BiDi"/>
+        <pin num="14" name="D7" type="BiDi"/>
+        <pin num="15" name="D8" type="BiDi"/>
+        <pin num="16" name="3.3V" type="power_out"/>
+      </pins>
+    </libpart>
+  </libparts>
+  <libraries>
+    <library logical="wemos_mini">
+      <uri>/home/mark/projects/esp/custom-mqtt-programs/thermostat/thermostat/libs/d1_mini_kicad/library/wemos_mini.lib</uri>
+    </library>
+    <library logical="switches">
+      <uri>/usr/share/kicad/library/switches.lib</uri>
+    </library>
+    <library logical="thermostat-cache">
+      <uri>/home/mark/projects/esp/custom-mqtt-programs/thermostat/thermostat/thermostat-cache.lib</uri>
+    </library>
+    <library logical="mine">
+      <uri>/home/mark/projects/esp/custom-mqtt-programs/thermostat/thermostat/libs/mine/mine.lib</uri>
+    </library>
+    <library logical="device">
+      <uri>/usr/share/kicad/library/device.lib</uri>
+    </library>
+    <library logical="74xx">
+      <uri>/usr/share/kicad/library/74xx.lib</uri>
+    </library>
+    <library logical="microchip">
+      <uri>/usr/share/kicad/library/microchip.lib</uri>
+    </library>
+    <library logical="conn">
+      <uri>/usr/share/kicad/library/conn.lib</uri>
+    </library>
+  </libraries>
+  <nets>
+    <net code="1" name="VCC">
+      <node ref="U4" pin="14"/>
+      <node ref="U1" pin="14"/>
+    </net>
+    <net code="2" name="Net-(P2-Pad3)">
+      <node ref="U4" pin="6"/>
+      <node ref="P2" pin="3"/>
+    </net>
+    <net code="3" name="Net-(U1-Pad8)">
+      <node ref="U1" pin="8"/>
+      <node ref="U4" pin="2"/>
+      <node ref="U4" pin="5"/>
+    </net>
+    <net code="4" name="GND">
+      <node ref="DS1" pin="4"/>
+      <node ref="P1" pin="1"/>
+      <node ref="U3" pin="16"/>
+      <node ref="P2" pin="1"/>
+      <node ref="U3" pin="15"/>
+      <node ref="U3" pin="10"/>
+      <node ref="U3" pin="17"/>
+      <node ref="C1" pin="2"/>
+      <node ref="COOL2" pin="2"/>
+      <node ref="FAN_AUTO2" pin="2"/>
+      <node ref="FAN_ON2" pin="2"/>
+      <node ref="HEAT2" pin="2"/>
+      <node ref="OFF2" pin="2"/>
+      <node ref="OLED1" pin="1"/>
+      <node ref="SW3" pin="2"/>
+      <node ref="SW2" pin="2"/>
+      <node ref="U3" pin="18"/>
+      <node ref="SW1" pin="2"/>
+      <node ref="U2" pin="2"/>
+      <node ref="U4" pin="7"/>
+      <node ref="U1" pin="7"/>
+    </net>
+    <net code="5" name="Net-(P2-Pad2)">
+      <node ref="U4" pin="3"/>
+      <node ref="P2" pin="2"/>
+    </net>
+    <net code="6" name="Net-(U1-Pad6)">
+      <node ref="U1" pin="6"/>
+      <node ref="U4" pin="1"/>
+    </net>
+    <net code="7" name="Net-(U2-Pad10)">
+      <node ref="U2" pin="10"/>
+    </net>
+    <net code="8" name="Net-(U2-Pad1)">
+      <node ref="U2" pin="1"/>
+    </net>
+    <net code="9" name="Net-(U2-Pad3)">
+      <node ref="U2" pin="3"/>
+    </net>
+    <net code="10" name="Net-(U2-Pad4)">
+      <node ref="U2" pin="4"/>
+    </net>
+    <net code="11" name="Net-(U2-Pad7)">
+      <node ref="U2" pin="7"/>
+    </net>
+    <net code="12" name="Net-(U2-Pad8)">
+      <node ref="U2" pin="8"/>
+    </net>
+    <net code="13" name="Net-(U2-Pad9)">
+      <node ref="U2" pin="9"/>
+    </net>
+    <net code="14" name="Net-(U3-Pad19)">
+      <node ref="U3" pin="19"/>
+    </net>
+    <net code="15" name="Net-(U2-Pad11)">
+      <node ref="U2" pin="11"/>
+    </net>
+    <net code="16" name="Net-(U2-Pad12)">
+      <node ref="U2" pin="12"/>
+    </net>
+    <net code="17" name="Net-(U2-Pad13)">
+      <node ref="U2" pin="13"/>
+    </net>
+    <net code="18" name="Net-(U2-Pad14)">
+      <node ref="U2" pin="14"/>
+    </net>
+    <net code="19" name="Net-(U2-Pad15)">
+      <node ref="U2" pin="15"/>
+    </net>
+    <net code="20" name="+3V3">
+      <node ref="OLED1" pin="2"/>
+      <node ref="R3" pin="1"/>
+      <node ref="U2" pin="16"/>
+      <node ref="P1" pin="4"/>
+      <node ref="R4" pin="1"/>
+      <node ref="DS1" pin="3"/>
+      <node ref="R5" pin="1"/>
+      <node ref="R1" pin="2"/>
+      <node ref="U3" pin="9"/>
+      <node ref="P2" pin="4"/>
+      <node ref="R7" pin="1"/>
+      <node ref="R6" pin="1"/>
+    </net>
+    <net code="21" name="Net-(U1-Pad2)">
+      <node ref="U1" pin="3"/>
+      <node ref="U1" pin="2"/>
+    </net>
+    <net code="22" name="Net-(U3-Pad20)">
+      <node ref="U3" pin="20"/>
+    </net>
+    <net code="23" name="Net-(P1-Pad3)">
+      <node ref="P1" pin="3"/>
+    </net>
+    <net code="24" name="/SCL">
+      <node ref="U2" pin="6"/>
+      <node ref="U3" pin="12"/>
+      <node ref="DS1" pin="2"/>
+      <node ref="OLED1" pin="3"/>
+    </net>
+    <net code="25" name="/SDA">
+      <node ref="DS1" pin="1"/>
+      <node ref="OLED1" pin="4"/>
+      <node ref="U3" pin="13"/>
+      <node ref="U2" pin="5"/>
+    </net>
+    <net code="26" name="Net-(C1-Pad1)">
+      <node ref="R1" pin="1"/>
+      <node ref="C1" pin="1"/>
+      <node ref="OLED1" pin="5"/>
+    </net>
+    <net code="27" name="Net-(U1-Pad4)">
+      <node ref="U1" pin="5"/>
+      <node ref="U1" pin="4"/>
+      <node ref="U4" pin="4"/>
+    </net>
+    <net code="28" name="/LED_COOL">
+      <node ref="U3" pin="28"/>
+      <node ref="COOL1" pin="1"/>
+    </net>
+    <net code="29" name="/BUTTON_TEMP_DOWN">
+      <node ref="U3" pin="2"/>
+      <node ref="SW2" pin="1"/>
+    </net>
+    <net code="30" name="/BUTTON_HEAT">
+      <node ref="U3" pin="6"/>
+      <node ref="HEAT2" pin="1"/>
+    </net>
+    <net code="31" name="/BUTTON_RESET">
+      <node ref="SW3" pin="1"/>
+      <node ref="U3" pin="3"/>
+    </net>
+    <net code="32" name="/BUTTON_TEMP_UP">
+      <node ref="SW1" pin="1"/>
+      <node ref="U3" pin="1"/>
+    </net>
+    <net code="33" name="/BUTTON_COOL">
+      <node ref="COOL2" pin="1"/>
+      <node ref="U3" pin="4"/>
+    </net>
+    <net code="34" name="/BUTTON_OFF">
+      <node ref="OFF2" pin="1"/>
+      <node ref="U3" pin="5"/>
+    </net>
+    <net code="35" name="/CONTROL_ENABLE">
+      <node ref="U3" pin="22"/>
+      <node ref="U1" pin="9"/>
+    </net>
+    <net code="36" name="/LED_OFF">
+      <node ref="U3" pin="27"/>
+      <node ref="OFF1" pin="1"/>
+    </net>
+    <net code="37" name="/LED_HEAT">
+      <node ref="HEAT1" pin="1"/>
+      <node ref="U3" pin="26"/>
+    </net>
+    <net code="38" name="/LED_FAN_AUTO">
+      <node ref="U3" pin="25"/>
+      <node ref="FAN_AUTO1" pin="1"/>
+    </net>
+    <net code="39" name="/LED_FAN_ON">
+      <node ref="FAN_ON1" pin="1"/>
+      <node ref="U3" pin="24"/>
+    </net>
+    <net code="40" name="/CONTROL_FAN_ON">
+      <node ref="U3" pin="23"/>
+      <node ref="P1" pin="2"/>
+    </net>
+    <net code="41" name="/BUTTON_FAN_AUTO">
+      <node ref="U3" pin="7"/>
+      <node ref="FAN_AUTO2" pin="1"/>
+    </net>
+    <net code="42" name="/CONTROL_SELECT">
+      <node ref="U3" pin="21"/>
+      <node ref="U1" pin="1"/>
+    </net>
+    <net code="43" name="Net-(OLED1-Pad7)">
+      <node ref="OLED1" pin="7"/>
+    </net>
+    <net code="44" name="Net-(OLED1-Pad6)">
+      <node ref="OLED1" pin="6"/>
+    </net>
+    <net code="45" name="Net-(HEAT1-Pad2)">
+      <node ref="HEAT1" pin="2"/>
+      <node ref="R5" pin="2"/>
+    </net>
+    <net code="46" name="Net-(OFF1-Pad2)">
+      <node ref="OFF1" pin="2"/>
+      <node ref="R4" pin="2"/>
+    </net>
+    <net code="47" name="Net-(COOL1-Pad2)">
+      <node ref="COOL1" pin="2"/>
+      <node ref="R3" pin="2"/>
+    </net>
+    <net code="48" name="/BUTTON_FAN_ON">
+      <node ref="U3" pin="8"/>
+      <node ref="FAN_ON2" pin="1"/>
+    </net>
+    <net code="49" name="Net-(FAN_ON1-Pad2)">
+      <node ref="R7" pin="2"/>
+      <node ref="FAN_ON1" pin="2"/>
+    </net>
+    <net code="50" name="Net-(FAN_AUTO1-Pad2)">
+      <node ref="R6" pin="2"/>
+      <node ref="FAN_AUTO1" pin="2"/>
+    </net>
+  </nets>
+</export>

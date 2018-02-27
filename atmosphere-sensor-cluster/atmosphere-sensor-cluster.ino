@@ -1,8 +1,6 @@
 #include <Wire.h>
-#include <Adafruit_BMP085.h>
 #include <Adafruit_BME280.h>
 #include <BH1750.h>
-#include "DHT.h"
 #include "mqtt-wrapper.h"
 
 #ifndef NAME
@@ -34,8 +32,8 @@ char topicBuf[1024];
 char floatBuf[16];
 
 Adafruit_BME280 bme;
+bool bmeConnected = true;
 BH1750 lightMeter(0x23);
-DHT dht(12, DHT22);
 
 unsigned long status = 0UL;
 unsigned long statusInterval = 60000UL;
@@ -68,25 +66,31 @@ void setup() {
   Wire.begin(4, 5);
 
   if (!bme.begin(0x76)) {
-    Serial.println("Could not find BMP 280 sensor");
-    while (1) {}
+    Serial.println("Could not find BME 280 sensor");
+    bmeConnected = false;
   }
   lightMeter.begin(BH1750_CONTINUOUS_HIGH_RES_MODE);
-  dht.begin();
 }
 
 void connectedLoop(PubSubClient* client) {
   if( (long)( millis() - status ) >= 0) {
     status = millis() + statusInterval;
 
-    sprintf(topicBuf, "tele/%s/bme280", TOPIC);
-    dtostrf(bme.readTemperature(), 0, 2,floatBuf);
-    sprintf(buf, "{\"Temperature\":%s, \"Pressure\":", floatBuf);
-    dtostrf(bme.readPressure(), 0, 2,floatBuf);
-    sprintf(buf + strlen(buf), "%s, \"Humidity\":", floatBuf);
-    dtostrf(bme.readHumidity(), 0, 2,floatBuf);
-    sprintf(buf + strlen(buf), "%s}", floatBuf);
-    client->publish(topicBuf, buf);
+    if(bmeConnected) {
+      sprintf(topicBuf, "tele/%s/bme280", TOPIC);
+      dtostrf(bme.readTemperature(), 0, 2,floatBuf);
+      sprintf(buf, "{\"Temperature\":%s, \"Pressure\":", floatBuf);
+      dtostrf(bme.readPressure(), 0, 2,floatBuf);
+      sprintf(buf + strlen(buf), "%s, \"Humidity\":", floatBuf);
+      dtostrf(bme.readHumidity(), 0, 2,floatBuf);
+      sprintf(buf + strlen(buf), "%s}", floatBuf);
+      client->publish(topicBuf, buf);
+    } else {
+      sprintf(buf, "bme280 DISCONNECTED");
+      sprintf(topicBuf, "tele/%s/error", TOPIC);
+      client->publish(topicBuf, buf);
+    }
+
     Serial.println("bme280");
     Serial.println(buf);
 
@@ -94,105 +98,9 @@ void connectedLoop(PubSubClient* client) {
     sprintf(buf, "{\"Lux\":%d}", lightMeter.readLightLevel());
     client->publish(topicBuf, buf);
     Serial.println(buf);
-
-    /*
-     * 2017-12-26 14:39:15.580 tele/i3/inside/fablab/sensor-cluster/bme280 {"Temperature":20.95, "Pressure":100810.14}
-     * 2017-12-26 14:39:15.627 tele/i3/inside/fablab/sensor-cluster/lux {"Lux":0}
-     * 2017-12-26 14:39:15.898 83647 {"Temperature":2147483647.2147483647, "Humidity":2147483647.2147483647}
-     */
-
-    sprintf(topicBuf, "tele/%s/dht22", TOPIC);
-    dtostrf(dht.readTemperature(), 0, 2, floatBuf);
-    sprintf(buf, "{\"Temperature\":%s, \"Humidity\":", floatBuf);
-    dtostrf(dht.readHumidity(), 0, 2, floatBuf);
-    sprintf(buf + strlen(buf), "%s}", floatBuf);
-    Serial.println("dht22");
-    Serial.println(buf);
-    client->publish(topicBuf, buf);
   }
 }
 
 void loop() {
   loop_mqtt();
 }
-
-//example code for particulate sensor and volume measuring
-
-/*
-#include <SPI.h>
-#include<string.h>
-
-#define DUST_SENSOR_DIGITAL_PIN_PM10  13
-#define DUST_SENSOR_DIGITAL_PIN_PM25  15
-
-byte buff[2];
-unsigned long duration;
-unsigned long starttime;
-unsigned long endtime;
-unsigned long sampletime_ms = 30000;
-unsigned long lowpulseoccupancy = 0;
-float ratio = 0;
-float concentration = 0;
-
-int i=0;
-void setup()
-{
-  Serial.begin(115200);
-  pinMode(DUST_SENSOR_DIGITAL_PIN_PM10,INPUT);
-  starttime = millis();
-}
-void loop()
-{
-  duration = pulseIn(DUST_SENSOR_DIGITAL_PIN_PM10, LOW);
-  lowpulseoccupancy += duration;
-  endtime = millis();
-  if ((endtime-starttime) > sampletime_ms)
-  {
-    ratio = (lowpulseoccupancy-endtime+starttime + sampletime_ms)/(sampletime_ms*10.0);  // Integer percentage 0=>100
-    concentration = 1.1*pow(ratio,3)-3.8*pow(ratio,2)+520*ratio+0.62; // using spec sheet curve
-    Serial.print("lowpulseoccupancy:");
-    Serial.print(lowpulseoccupancy);
-    Serial.print("    ratio:");
-    Serial.print(ratio);
-    Serial.print("    DSM501A:");
-    Serial.println(concentration);
-    lowpulseoccupancy = 0;
-    starttime = millis();
-  }
-}
-*/
-
-/*
-const int audioSampleWindow = 5000; // Sample window width in mS (50 mS = 20Hz)
-unsigned int audioSample;
-unsigned int audioMaxSample = 0;
-uint16_t audioMaxTime = 0;
-unsigned int audioMinSample = 1024;
-uint16_t audioMinTime = 0;
-
-void setup()
-{
-  Serial.begin(115200);
-  pinMode(DSM501A_PIN, INPUT);
-}
-
-void loop() {
-  audioSample = analogRead(A0);
-  uint16_t now = millis();
-  if(audioSample < audioMinSample || now - audioMinTime > audioSampleWindow) {
-    audioMinSample = audioSample;
-    audioMinTime = now;
-  } else if(audioSample > audioMaxSample || now - audioMaxTime > audioSampleWindow) {
-    audioMaxSample = audioSample;
-    audioMaxTime = now;
-  }
-  //(peak to peak * 3.3) / 1024
-  double volts = ((audioMaxSample - audioMinSample) * 3.3) / 1024;  // convert to volts
-  Serial.print("audio volts: ");
-  Serial.println(volts);
-
-
-  Serial.println();
-  delay(1000);
-}
-*/

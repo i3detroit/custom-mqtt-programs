@@ -240,7 +240,7 @@ void connectedLoop(PubSubClient* client) {
       }
       //If the button was pressed or released, we still need to reset the debounce timer.
       button_state_last[i] = button_state[i];
-      debounce[i] = millis();
+      debounce[i] = now;
     }
   }
 }
