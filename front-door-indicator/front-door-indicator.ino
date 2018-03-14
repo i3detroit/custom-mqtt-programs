@@ -149,14 +149,11 @@ void connectedLoop(PubSubClient* client) {
       } else if(i == 1) {
         //garage door
         client->publish("stat/i3/inside/commons/garage-door/lock", button_state[i] ? "UNLOCKED" : "LOCKED");
-        pcf8574.write(button_state[i] ? GARAGE_RED : GARAGE_GREEN, HIGH);
-        pcf8574.write(!button_state[i] ? GARAGE_RED : GARAGE_GREEN, LOW);
       } else if(i == 2) {
         //normal doorbell
         if (button_state[i] == LOW) {
           client->publish("stat/i3/inside/commons/normal-doorbell/press", "ding\a");
         }
-        digitalWrite(NORMAL_DOORBELL_OUT, !button_state[i]);
       }
 
       //If the button was pressed or released, we still need to reset the debounce timer.
@@ -168,6 +165,16 @@ void connectedLoop(PubSubClient* client) {
 
 void loop() {
   loop_mqtt();
+  for(int i=1; i <= 2; ++i) {
+    button_state[i] = digitalRead(button_pins[i]);//Read current state
+    if(i == 1) {
+      pcf8574.write(button_state[i] ? GARAGE_RED : GARAGE_GREEN, HIGH);
+      pcf8574.write(!button_state[i] ? GARAGE_RED : GARAGE_GREEN, LOW);
+    } else if(i == 2) {
+      //normal doorbell
+      digitalWrite(NORMAL_DOORBELL_OUT, !button_state[i]);
+    }
+  }
   if( (long)( millis() - ledRefresh ) >= 0) {
     ledRefresh = millis() + ledRefreshInterval;
     pcf8574.read8();
