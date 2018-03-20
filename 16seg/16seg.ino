@@ -29,10 +29,13 @@
 
 
 const char* host_name = "16-segment-display";
+const char* fullTopic = "i3/inside/commons/16seg";
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASSWORD;
 const char* mqtt_server = MQTT_SERVER;
 const int mqtt_port = MQTT_PORT;
+
+struct mqtt_wrapper_options mqtt_options;
 
 char buf[1024];
 char displayString[1024];
@@ -52,13 +55,13 @@ char validateChar(char toValid) {
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
 
-  if(strcmp(topic, "cmnd/i3/commons/16seg/delay") == 0) {
+  if(strcmp(topic, "delay") == 0) {
     char buf[5];
     for(int i=0; i<length && i<sizeof(buf)/sizeof(char); ++i){
       buf[i] = (char)payload[i];
     }
     d = atoi(buf);
-  } else if (strcmp(topic, "cmnd/i3/commons/16seg/display") == 0) {
+  } else if (strcmp(topic, "display") == 0) {
     //Serial.println("Got payload");
     //for (int i = 0; i < length; i++) {
     //  Serial.print((char)payload[i]);
@@ -107,19 +110,23 @@ void connectSuccess(PubSubClient* client, char* ip) {
       Serial.print(' ');
   }
   Serial.print(ip);
-
-  //subscribe and shit here
-  sprintf(buf, "{\"Hostname\":\"%s\", \"IPaddress\":\"%s\"}", host_name, ip);
-  client->publish("tele/i3/commons/16seg/INFO2", buf);
-  client->subscribe("cmnd/i3/commons/16seg/display");
-  client->subscribe("cmnd/i3/commons/16seg/delay");
 }
 
 void setup() {
   Serial.begin(4800);
   Serial.print("CONNECTING.....");
 
-  setup_mqtt(connectedLoop, callback, connectSuccess, ssid, password, mqtt_server, mqtt_port, host_name, false);
+  mqtt_options.connectedLoop = connectedLoop;
+  mqtt_options.callback = callback;
+  mqtt_options.connectSuccess = connectSuccess;
+  mqtt_options.ssid = ssid;
+  mqtt_options.password = password;
+  mqtt_options.mqtt_server = mqtt_server;
+  mqtt_options.mqtt_port = mqtt_port;
+  mqtt_options.host_name = host_name;
+  mqtt_options.fullTopic = fullTopic;
+  mqtt_options.debug_print = false;
+  setup_mqtt(&mqtt_options);
 }
 
 void connectedLoop(PubSubClient* client) {
