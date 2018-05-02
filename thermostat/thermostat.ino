@@ -234,9 +234,9 @@ void doControl() {
       Serial.println("HEAT ELSE WRONG");
     }
   } else if(cool) {
-    if(currentTemp - swing >= targetTemp || (currentTemp > targetTemp-swing && currentTemp < targetTemp+swing && !enabled)) {
+    if(currentTemp - swing >= targetTemp || (abs(currentTemp-targetTemp) < swing && enabled)) {
       toWrite = setCool(toWrite);
-    } else if(currentTemp + swing < targetTemp || (currentTemp > targetTemp-swing && currentTemp < targetTemp+swing && enabled)) {
+    } else if(currentTemp + swing < targetTemp || (abs(currentTemp-targetTemp) < swing && enabled)) {
       toWrite = setOff(toWrite);
     } else {
       Serial.println("COOL ELSE WRONG");
