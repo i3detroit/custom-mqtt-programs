@@ -50,7 +50,7 @@
 //actual pins
 #define SHUTDOWN_BUTTON 12
 #define GARAGE_DOOR_BUTTON 13
-#define NORMAL_DOORBELL 2
+#define NORMAL_DOORBELL 15
 #define NORMAL_DOORBELL_OUT 14
 
 unsigned long ledRefresh = 0UL;
@@ -76,7 +76,7 @@ const int button_pins[] = {SHUTDOWN_BUTTON, GARAGE_DOOR_BUTTON, NORMAL_DOORBELL}
 
 //Debounce setup
 int button_state[] = {1,1,1};
-int button_state_last[] = {-1,-1,-1};
+int button_state_last[] = {-1,-1,1};
 int debounce[] = {0,0,0};
 const int debounce_time = 50;
 
@@ -112,6 +112,18 @@ void connectSuccess(PubSubClient* client, char* ip) {
 
 
 void setup() {
+  //input pins
+  for (int i=0; i < ARRAY_SIZE(button_pins); ++i) {
+    if(i!=2) {
+      pinMode(button_pins[i], INPUT_PULLUP);
+    } else {
+      //doorbell in
+      pinMode(button_pins[i], INPUT);
+    }
+  }
+  pinMode(NORMAL_DOORBELL_OUT, OUTPUT);
+  digitalWrite(NORMAL_DOORBELL_OUT, 0);
+
   mqtt_options.connectedLoop = connectedLoop;
   mqtt_options.callback = callback;
   mqtt_options.connectSuccess = connectSuccess;
@@ -124,12 +136,6 @@ void setup() {
   mqtt_options.debug_print = false;
   setup_mqtt(&mqtt_options);
 
-  //input pins
-  for (int i=0; i < ARRAY_SIZE(button_pins); ++i) {
-    pinMode(button_pins[i], INPUT_PULLUP);
-  }
-  pinMode(NORMAL_DOORBELL_OUT, OUTPUT);
-
   testWire.begin(5, 4);
   testWire.setClock(10000L);
   pcf8574.begin();
@@ -141,7 +147,7 @@ void connectedLoop(PubSubClient* client) {
     //If the current state does not equal the last state, AND it's been long enough since the last change
     if (button_state[i] != button_state_last[i] && millis() - debounce[i] > debounce_time) {
 
-      if(i == 0 && button_state[i] == HIGH) {
+      if(i == 0 && button_state[i] == LOW) {
         //shutdown button
         client->publish("cmnd/i3/automation/shutdown", "DOWNSHUT");
         sprintf(buf, "stat/%s/shutdown", fullTopic);
@@ -149,14 +155,11 @@ void connectedLoop(PubSubClient* client) {
       } else if(i == 1) {
         //garage door
         client->publish("stat/i3/inside/commons/garage-door/lock", button_state[i] ? "UNLOCKED" : "LOCKED");
-        pcf8574.write(button_state[i] ? GARAGE_RED : GARAGE_GREEN, HIGH);
-        pcf8574.write(!button_state[i] ? GARAGE_RED : GARAGE_GREEN, LOW);
       } else if(i == 2) {
         //normal doorbell
-        if (button_state[i] == LOW) {
+        if (button_state[i] == HIGH) {
           client->publish("stat/i3/inside/commons/normal-doorbell/press", "ding\a");
         }
-        digitalWrite(NORMAL_DOORBELL_OUT, !button_state[i]);
       }
 
       //If the button was pressed or released, we still need to reset the debounce timer.
@@ -168,6 +171,16 @@ void connectedLoop(PubSubClient* client) {
 
 void loop() {
   loop_mqtt();
+  for(int i=1; i <= 2; ++i) {
+    button_state[i] = digitalRead(button_pins[i]);//Read current state
+    if(i == 1) {
+      pcf8574.write(button_state[i] ? GARAGE_RED : GARAGE_GREEN, HIGH);
+      pcf8574.write(!button_state[i] ? GARAGE_RED : GARAGE_GREEN, LOW);
+    // } else if(i == 2) {
+    //   //normal doorbell
+    //   digitalWrite(NORMAL_DOORBELL_OUT, !button_state[i]);
+    }
+  }
   if( (long)( millis() - ledRefresh ) >= 0) {
     ledRefresh = millis() + ledRefreshInterval;
     pcf8574.read8();

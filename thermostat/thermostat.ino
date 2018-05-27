@@ -234,9 +234,9 @@ void doControl() {
       Serial.println("HEAT ELSE WRONG");
     }
   } else if(cool) {
-    if(currentTemp - swing >= targetTemp || (currentTemp > targetTemp-swing && currentTemp < targetTemp+swing && !enabled)) {
+    if(currentTemp - swing >= targetTemp || (abs(currentTemp-targetTemp) < swing && enabled)) {
       toWrite = setCool(toWrite);
-    } else if(currentTemp + swing < targetTemp || (currentTemp > targetTemp-swing && currentTemp < targetTemp+swing && enabled)) {
+    } else if(currentTemp + swing < targetTemp || (abs(currentTemp-targetTemp) < swing && enabled)) {
       toWrite = setOff(toWrite);
     } else {
       Serial.println("COOL ELSE WRONG");
@@ -321,7 +321,7 @@ void display() {
 
 void readTemp() {
   currentTemp = bme.readTemperature();
-  dtostrf(bme.readTemperature(), 0, 2,tempBuf);
+  dtostrf(bme.readTemperature(),15,2,tempBuf);
   displayDirty = true;
   stateDirty = true;
 
@@ -330,12 +330,8 @@ void readTemp() {
 }
 
 void reportState(PubSubClient *client) {
-  dtostrf(bme.readPressure(), 0, 2, pressureBuf);
-  dtostrf(bme.readHumidity(), 0, 1, humidityBuf);
-
-  DEBUG_PRINT("reported: ");
-  DEBUG_PRINTLN(tempBuf);
-
+  dtostrf(bme.readPressure(), 15, 2, pressureBuf);
+  dtostrf(bme.readHumidity(), 15, 1, humidityBuf);
   sprintf(topicBuf, "tele/%s/bme280", TOPIC);
   sprintf(buf, "{\"Temperature\":%s, \"Pressure\":%s, \"Humidity\":%s}", tempBuf, pressureBuf, humidityBuf);
   client->publish(topicBuf, buf);
