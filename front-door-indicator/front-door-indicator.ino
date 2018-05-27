@@ -30,8 +30,8 @@
 //  input from garage door publishing to stat/i3/commons/garageDoor LOCKED/UNLOCKED
 //  LED for glass door listening to cmnd/i3/classroom/glassDoor/lock
 //  LED for garage door directly controlled
-//TODO:
 //  LED for argon stat/i3/inside/weld-zone/tank-sensors/argon
+//  Publish analog pin battery read
 
 //pcf8574 i2c breakout pins
 #define GLASS_DOOR_LOCK_RED 1
@@ -53,9 +53,18 @@
 #define NORMAL_DOORBELL 15
 #define NORMAL_DOORBELL_OUT 14
 
+//Battery
+//818 is 13.55
+#define BATTERY_SCALAR 13.55/818
+#define BATTERY_PIN A0
+
 unsigned long ledRefresh = 0UL;
 unsigned long ledRefreshInterval = 60000UL;
 
+unsigned long status = 0UL;
+unsigned long statusInterval = 60000UL;
+
+char topicBuf[1024];
 char buf[1024];
 
 TwoWire testWire;
@@ -142,6 +151,13 @@ void setup() {
 }
 
 void connectedLoop(PubSubClient* client) {
+  if( (long)( millis() - status ) >= 0) {
+    status = millis() + statusInterval;
+    float level = ((float)analogRead(BATTERY_PIN))*BATTERY_SCALAR;
+    sprintf(topicBuf, "tele/%s/batteryVoltage", fullTopic);
+    dtostrf(level, 6, 3, buf);
+    client->publish(topicBuf, buf);
+  }
   for(int i=0; i < ARRAY_SIZE(button_pins); ++i) {
     button_state[i] = digitalRead(button_pins[i]);//Read current state
     //If the current state does not equal the last state, AND it's been long enough since the last change
