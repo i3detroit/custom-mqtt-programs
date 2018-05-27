@@ -32,6 +32,7 @@
 //  LED for garage door directly controlled
 //  LED for argon stat/i3/inside/weld-zone/tank-sensors/argon
 //  Publish analog pin battery read
+//  publish front door switch state
 
 //pcf8574 i2c breakout pins
 #define GLASS_DOOR_LOCK_RED 1
@@ -49,10 +50,11 @@
 
 //actual pins
 #define SHUTDOWN_BUTTON 12
-#define GARAGE_DOOR_BUTTON 13
+#define GARAGE_DOOR_SWITCH 13
 #define NORMAL_DOORBELL 15
 #define NORMAL_DOORBELL_OUT 14
 #define EMERGENCY_LIGHTS_ON_BUTTON 3
+#define FRONT_DOOR_SWITCH 1
 
 //Battery
 //818 is 13.55
@@ -82,12 +84,12 @@ const int mqtt_port = MQTT_PORT;
 struct mqtt_wrapper_options mqtt_options;
 
 // button pins 4 is sthudown button, 5 is garage door
-const int button_pins[] = {NORMAL_DOORBELL, SHUTDOWN_BUTTON, EMERGENCY_LIGHTS_ON_BUTTON, GARAGE_DOOR_BUTTON};
+const int button_pins[] = {NORMAL_DOORBELL, SHUTDOWN_BUTTON, EMERGENCY_LIGHTS_ON_BUTTON, GARAGE_DOOR_SWITCH, FRONT_DOOR_SWITCH};
 
 //Debounce setup
-int button_state[] = {1,1,1};
-int button_state_last[] = {-1,-1,1};
-int debounce[] = {0,0,0};
+int button_state[] = {1,1,1,1,1};
+int button_state_last[] = {-1,-1,-1,-1,-1};
+int debounce[] = {0,0,0,0,0};
 const int debounce_time = 50;
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
@@ -124,7 +126,7 @@ void connectSuccess(PubSubClient* client, char* ip) {
 void setup() {
   //input pins
   for (int i=0; i < ARRAY_SIZE(button_pins); ++i) {
-    if(i==0) {
+    if(i==0 || i==4) {
       //doorbell in
       pinMode(button_pins[i], INPUT);
     } else {
@@ -178,6 +180,9 @@ void connectedLoop(PubSubClient* client) {
       } else if(i == 3) {
         //garage door
         client->publish("stat/i3/inside/commons/garage-door/lock", button_state[i] ? "UNLOCKED" : "LOCKED");
+      } else if(i == 4) {
+        //front door
+        client->publish("stat/i3/inside/commons/front-door/lock", !button_state[i] ? "UNLOCKED" : "LOCKED");
       }
 
       //If the button was pressed or released, we still need to reset the debounce timer.
