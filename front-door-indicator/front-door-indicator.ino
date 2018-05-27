@@ -52,6 +52,7 @@
 #define GARAGE_DOOR_BUTTON 13
 #define NORMAL_DOORBELL 15
 #define NORMAL_DOORBELL_OUT 14
+#define EMERGENCY_LIGHTS_ON_BUTTON 3
 
 //Battery
 //818 is 13.55
@@ -81,7 +82,7 @@ const int mqtt_port = MQTT_PORT;
 struct mqtt_wrapper_options mqtt_options;
 
 // button pins 4 is sthudown button, 5 is garage door
-const int button_pins[] = {SHUTDOWN_BUTTON, GARAGE_DOOR_BUTTON, NORMAL_DOORBELL};
+const int button_pins[] = {NORMAL_DOORBELL, SHUTDOWN_BUTTON, EMERGENCY_LIGHTS_ON_BUTTON, GARAGE_DOOR_BUTTON};
 
 //Debounce setup
 int button_state[] = {1,1,1};
@@ -123,11 +124,11 @@ void connectSuccess(PubSubClient* client, char* ip) {
 void setup() {
   //input pins
   for (int i=0; i < ARRAY_SIZE(button_pins); ++i) {
-    if(i!=2) {
-      pinMode(button_pins[i], INPUT_PULLUP);
-    } else {
+    if(i==0) {
       //doorbell in
       pinMode(button_pins[i], INPUT);
+    } else {
+      pinMode(button_pins[i], INPUT_PULLUP);
     }
   }
   pinMode(NORMAL_DOORBELL_OUT, OUTPUT);
@@ -163,19 +164,20 @@ void connectedLoop(PubSubClient* client) {
     //If the current state does not equal the last state, AND it's been long enough since the last change
     if (button_state[i] != button_state_last[i] && millis() - debounce[i] > debounce_time) {
 
-      if(i == 0 && button_state[i] == LOW) {
+      if(i == 0 && button_state[i] == HIGH) {
+        //normal doorbell
+        client->publish("stat/i3/inside/commons/normal-doorbell/press", "ding\a");
+      } else if(i == 1 && button_state[i] == LOW) {
         //shutdown button
         client->publish("cmnd/i3/automation/shutdown", "DOWNSHUT");
         sprintf(buf, "stat/%s/shutdown", fullTopic);
         client->publish(buf, "It was I who pressed the button");
-      } else if(i == 1) {
+      } else if(i == 2 && button_state[i] == LOW) {
+        //emergency lights on
+        client->publish("cmnd/i3/automation/emergencyLightsOn", "ON");
+      } else if(i == 3) {
         //garage door
         client->publish("stat/i3/inside/commons/garage-door/lock", button_state[i] ? "UNLOCKED" : "LOCKED");
-      } else if(i == 2) {
-        //normal doorbell
-        if (button_state[i] == HIGH) {
-          client->publish("stat/i3/inside/commons/normal-doorbell/press", "ding\a");
-        }
       }
 
       //If the button was pressed or released, we still need to reset the debounce timer.
@@ -187,14 +189,12 @@ void connectedLoop(PubSubClient* client) {
 
 void loop() {
   loop_mqtt();
+  //TODO: don't loop here
   for(int i=1; i <= 2; ++i) {
     button_state[i] = digitalRead(button_pins[i]);//Read current state
-    if(i == 1) {
+    if(i == 3) {
       pcf8574.write(button_state[i] ? GARAGE_RED : GARAGE_GREEN, HIGH);
       pcf8574.write(!button_state[i] ? GARAGE_RED : GARAGE_GREEN, LOW);
-    // } else if(i == 2) {
-    //   //normal doorbell
-    //   digitalWrite(NORMAL_DOORBELL_OUT, !button_state[i]);
     }
   }
   if( (long)( millis() - ledRefresh ) >= 0) {
