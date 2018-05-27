@@ -194,14 +194,11 @@ void connectedLoop(PubSubClient* client) {
 
 void loop() {
   loop_mqtt();
-  //TODO: don't loop here
-  for(int i=1; i <= 2; ++i) {
-    button_state[i] = digitalRead(button_pins[i]);//Read current state
-    if(i == 3) {
-      pcf8574.write(button_state[i] ? GARAGE_RED : GARAGE_GREEN, HIGH);
-      pcf8574.write(!button_state[i] ? GARAGE_RED : GARAGE_GREEN, LOW);
-    }
-  }
+
+  button_state[3] = digitalRead(button_pins[3]);//Read current state
+  pcf8574.write(button_state[3] ? GARAGE_RED : GARAGE_GREEN, HIGH);
+  pcf8574.write(!button_state[3] ? GARAGE_RED : GARAGE_GREEN, LOW);
+
   if( (long)( millis() - ledRefresh ) >= 0) {
     ledRefresh = millis() + ledRefreshInterval;
     pcf8574.read8();
