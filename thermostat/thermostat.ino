@@ -179,6 +179,7 @@ uint8_t setCool(uint8_t toWrite) {
   heatCool = 1;
   toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
   toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 0);//0 is heat but this is inverted
+  toWrite = change_bit(toWrite, 7-FAN_CONTROL, 1);
   return toWrite;
 }
 uint8_t setOff(uint8_t toWrite) {
