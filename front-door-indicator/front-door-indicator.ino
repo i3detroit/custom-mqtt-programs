@@ -106,9 +106,9 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     pcf8574.write(ARGON_GREEN, (char)payload[0] == 'C' ? 1 : 0);
     pcf8574.write(ARGON_RED, (char)payload[0] == 'C' ? 0 : 1);
   } else if (strcmp(topic, "cmnd/i3/inside/commons/garage-door/lock") == 0) {
-    client->publish("stat/i3/inside/commons/garage-door/lock", button_state[1] ? "UNLOCKED" : "LOCKED");
+    client->publish("stat/i3/inside/commons/garage-door/lock", button_state[3] ? "UNLOCKED" : "LOCKED");
   } else if (strcmp(topic, "cmnd/i3/inside/commons/front-door/lock") == 0) {
-    client->publish("stat/i3/inside/commons/front-door/lock", button_state[1] ? "UNLOCKED" : "LOCKED");
+    client->publish("stat/i3/inside/commons/front-door/lock", !button_state[4] ? "UNLOCKED" : "LOCKED");
   } else if (strcmp(topic, "cmnd/i3/inside/commons/normal-doorbell/press") == 0) {
     client->publish("stat/i3/inside/commons/normal-doorbell/press", "command");
     digitalWrite(NORMAL_DOORBELL_OUT, 1);
