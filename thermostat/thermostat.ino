@@ -322,7 +322,7 @@ void display() {
 
 void readTemp() {
   currentTemp = bme.readTemperature();
-  dtostrf(bme.readTemperature(),15,2,tempBuf);
+  dtostrf(bme.readTemperature(),0,2,tempBuf);
   displayDirty = true;
   stateDirty = true;
 
@@ -331,8 +331,8 @@ void readTemp() {
 }
 
 void reportState(PubSubClient *client) {
-  dtostrf(bme.readPressure(), 15, 2, pressureBuf);
-  dtostrf(bme.readHumidity(), 15, 1, humidityBuf);
+  dtostrf(bme.readPressure(), 0, 2, pressureBuf);
+  dtostrf(bme.readHumidity(), 0, 1, humidityBuf);
   sprintf(topicBuf, "tele/%s/bme280", TOPIC);
   sprintf(buf, "{\"Temperature\":%s, \"Pressure\":%s, \"Humidity\":%s}", tempBuf, pressureBuf, humidityBuf);
   client->publish(topicBuf, buf);
@@ -340,11 +340,11 @@ void reportState(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/request", TOPIC);
   sprintf(buf, "{\"TargetTemp\":");
   itoa(targetTemp, buf + strlen(buf), 10);
-  sprintf(buf + strlen(buf), ", \"requested\":\"%s\", \"fan\":\"%s\"}", (!heat && !cool) ? "OFF" : heat ? "HEAT" : "COOL", fanForced ? "ON" : "AUTO");
+  sprintf(buf + strlen(buf), ", \"requested\":\"%s\", \"fan\":\"%s\"}", (!heat && !cool) ? "off" : heat ? "heat" : "cool", fanForced ? "on" : "auto");
   client->publish(topicBuf, buf);
 
   sprintf(topicBuf, "tele/%s/output", TOPIC);
-  sprintf(buf, "{\"output\":\"%s\", \"fan\":\"%s\", \"swing\":%d}", !enabled ? "OFF" : heatCool ? "COOL" : "HEAT", fanForced ? "ON" : "AUTO", swing);
+  sprintf(buf, "{\"output\":\"%s\", \"fan\":\"%s\", \"swing\":%d}", !enabled ? "off" : heatCool ? "cool" : "heat", fanForced ? "on" : "auto", swing);
   client->publish(topicBuf, buf);
 }
 
@@ -354,7 +354,12 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   //    mode: heat|cool|off
   //    fan: auto|on
   //    swing: uint8_t
+  if (length == 0) {
+    reportState(client);
+    return;
+  }
   if (strcmp(topic, "target") == 0) {
+    payload[length] = '\0';
     targetTemp = atoi((char*)payload);
     if(targetTemp < MIN_TEMP) {
       targetTemp = MIN_TEMP;
@@ -365,7 +370,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     nextTimeout = millis() + timeoutInterval;
     stateDirty = true;
     displayDirty = true;
-  } else if (strcmp(topic, "mode") == 0) {
+  } else if (strncmp(topic, "mode", length - 1) == 0) {
     stateDirty = true;
     if(strncmp((char*)payload, "heat", 4) == 0) {
       heat = true;
@@ -389,7 +394,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       sprintf(topicBuf, "stat/%s/mode", TOPIC);
       client->publish(topicBuf, "bad command");
     }
-  } else if (strcmp(topic, "fan") == 0) {
+  } else if (strncmp(topic, "fan", length - 1) == 0) {
     stateDirty = true;
     if(strncmp((char*)payload, "auto", 4) == 0) {
       fanForced = false;
@@ -401,7 +406,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       sprintf(topicBuf, "stat/%s/fan", TOPIC);
       client->publish(topicBuf, "bad command");
     }
-  } else if (strcmp(topic, "swing") == 0) {
+  } else if (strncmp(topic, "swing", length - 1) == 0) {
     uint8_t newSwing = atoi((char*)payload);
     if(newSwing <= 3 && newSwing >= 0) {
       swing = newSwing;
