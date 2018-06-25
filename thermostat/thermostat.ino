@@ -419,10 +419,14 @@ void reportState(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/request", TOPIC);
   sprintf(buf, "{\"TargetTemp\":");
   itoa(targetTemp, buf + strlen(buf), 10);
+  //TODO: move all these to publish to their topics if changed
+  //TODO: status
   sprintf(buf + strlen(buf), ", \"requested\":\"%s\", \"fan\":\"%s\"}", (!heat && !cool) ? "off" : heat ? "heat" : "cool", fanForced ? "on" : "auto");
   client->publish(topicBuf, buf);
 
   sprintf(topicBuf, "tele/%s/output", TOPIC);
+  //TODO: Remove swing
+  //TODO: Fan as on/off not on/auto
   sprintf(buf, "{\"output\":\"%s\", \"fan\":\"%s\", \"swing\":%d}", !enabled ? "off" : heatCool ? "cool" : "heat", fanForced ? "on" : "auto", swing);
   client->publish(topicBuf, buf);
 }
