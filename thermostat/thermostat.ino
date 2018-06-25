@@ -397,11 +397,11 @@ void readTemp() {
   if(bmeConnected) {
     currentTemp = bme.readTemperature();
     dtostrf(currentTemp, 0, 2, tempBuf);
-    displayDirty = true;
-    stateDirty = true;
   } else {
     currentTemp = 10;
   }
+  displayDirty = true;
+  stateDirty = true;
 }
 
 void reportState(PubSubClient *client) {
