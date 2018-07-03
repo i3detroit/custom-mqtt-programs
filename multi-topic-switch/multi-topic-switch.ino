@@ -117,6 +117,7 @@ void connectSuccess(PubSubClient* client, char* ip) {
 void setup() {
   //Serial.begin(115200);
   mqtt_options.connectedLoop = connectedLoop;
+  mqtt_options.telemetry = telemetry;
   mqtt_options.callback = callback;
   mqtt_options.connectSuccess = connectSuccess;
   mqtt_options.ssid = ssid;
@@ -126,6 +127,7 @@ void setup() {
   mqtt_options.host_name = host_name;
   mqtt_options.fullTopic = fullTopic;
   mqtt_options.debug_print = false;
+  mqtt_options.telemetryInterval = 5*60*1000;
   setup_mqtt(&mqtt_options);
 
   memset(button_state, -1, ARRAY_SIZE(button_pins));
@@ -147,6 +149,35 @@ void setup() {
   pinMode(TOPIC_2_LED, OUTPUT);
   digitalWrite(TOPIC_2_LED, digitalRead(TOPIC_2_PIN) != TOPIC_2_POLARITY);
 #endif
+}
+
+void telemetry(PubSubClient* client) {
+  bool polarity;
+  for(int i=0; i < ARRAY_SIZE(button_pins); ++i) {
+    switch(i) {
+      case 0:
+        sprintf(topicBuf, "stat/%s", TOPIC_0_TOPIC);
+        polarity = TOPIC_0_POLARITY;
+        break;
+#ifdef TOPIC_1_TOPIC
+      case 1:
+        sprintf(topicBuf, "stat/%s", TOPIC_1_TOPIC);
+        polarity = TOPIC_1_POLARITY;
+        break;
+#endif
+#ifdef TOPIC_2_TOPIC
+      case 2:
+        sprintf(topicBuf, "stat/%s", TOPIC_2_TOPIC);
+        polarity = TOPIC_2_POLARITY;
+        break;
+#endif
+      default:
+        //Should not be
+        sprintf(topicBuf, "stat/%s/error", fullTopic);
+        client->publish(topicBuf, "Telemetry trying to publish out of range topics");
+    }
+    client->publish(topicBuf, button_state_last[i] != polarity ? "OPEN" : "CLOSED");
+  }
 }
 
 void connectedLoop(PubSubClient* client) {
