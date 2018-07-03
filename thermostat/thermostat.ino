@@ -101,6 +101,7 @@ char humidityBuf[16];
 char tempBuf[16];
 
 struct mqtt_wrapper_options mqtt_options;
+enum ConnState connState;
 
 Adafruit_MCP23017 mcp;
 
@@ -116,8 +117,6 @@ unsigned long timeoutInterval = 1000*3*60*60;
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R1, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ 5, /* data=*/ 4);
 Adafruit_BME280 bme;
 bool bmeConnected = true;
-
-bool mqttConnected = false;
 
 //swing temp how far above or below the target has to go to actually control
 uint8_t swing;
@@ -385,10 +384,16 @@ void display() {
     u8g2.drawStr(0,50,"temp 10");
   }
   u8g2.setFont(u8g2_font_unifont_t_symbols);
-  if(mqttConnected) {
-    u8g2.drawGlyph(55, 10, 0x25C8);	/* dec 9672/hex 25C8 some dot */
-  } else {
-    u8g2.drawGlyph(55, 10, 0x25C7);	/* dec 9671/hex 25C7 some dot */
+  switch(connState) {
+    case F_MQTT_CONNECTED:
+      u8g2.drawGlyph(55, 10, 0x25C6);	/* dec 9670/hex 25C6 some dot */
+      break;
+    case F_MQTT_DISCONNECTED:
+      u8g2.drawGlyph(55, 10, 0x25C8);	/* dec 9672/hex 25C8 some dot */
+      break;
+    case WIFI_DISCONNECTED:
+      u8g2.drawGlyph(55, 10, 0x25C7);	/* dec 9671/hex 25C7 some dot */
+      break;
   }
   u8g2.sendBuffer();
 }
@@ -441,6 +446,8 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   //    mode: heat|cool|off
   //    fan: auto|on
   //    swing: uint8_t
+  //    TODO: add set timeout
+  //    TODO: add run
   if (strcmp(topic, "target") == 0) {
     payload[length] = '\0';
     sprintf(topicBuf, "stat/%s/target", TOPIC);
@@ -520,6 +527,13 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   }
 }
 
+void connectionEvent(PubSubClient* client, enum ConnState state, int reason) {
+  connState = state;
+  //Skipping displayDirty because sometimes this is called with no looping
+  //like for wifi connect and then mqtt connect
+  display();
+}
+
 void connectSuccess(PubSubClient* client, char* ip) {
   //Are subscribed to cmnd/fullTopic/+
   // u8g2.clearBuffer();
@@ -527,7 +541,6 @@ void connectSuccess(PubSubClient* client, char* ip) {
   // u8g2.sendBuffer();
   readTemp();
   reportState(client);
-  mqttConnected = true;
 }
 
 
@@ -555,6 +568,7 @@ void setup() {
   mqtt_options.connectedLoop = connectedLoop;
   mqtt_options.callback = callback;
   mqtt_options.connectSuccess = connectSuccess;
+  mqtt_options.connectionEvent = connectionEvent;
   mqtt_options.ssid = WIFI_SSID;
   mqtt_options.password = WIFI_PASSWORD;
   mqtt_options.mqtt_server = MQTT_SERVER;
@@ -607,8 +621,8 @@ uint8_t readLow() {
 
 void connectedLoop(PubSubClient* client) {
   if( (long)( millis() - nextStatus ) >= 0 || displayDirty || mqttDirty) {
-    mqttDirty = false;
     nextStatus = millis() + statusInterval;
+    mqttDirty = false;
     reportState(client);
   }
 }
