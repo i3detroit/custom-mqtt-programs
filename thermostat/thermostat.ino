@@ -40,6 +40,32 @@
 //#define HEAT_ONLY
 #endif
 
+enum Mode { OFF = 0, HEAT, COOL };
+struct controlState {
+  enum Mode mode;
+  bool fan;
+  int target;
+  int swing;
+  uint32_t timeout;
+};
+struct sensorState {
+  float temp;
+  float pressure;
+  float humidity;
+  bool batteryPower;
+  bool tempSensor; //if sensor connected
+};
+struct outputState {
+  enum Mode mode;
+  bool fan;
+};
+
+struct controlState controlState;
+struct controlState mqttControlState;
+
+struct sensorState currentSensorState;
+
+struct outputState outputState;
 
 #define DEBUG
 
@@ -53,9 +79,6 @@
 
 //magic numbers stored in eeprom to set boot state
 #define MAGIC_EEPROM_NUMBER 0x42
-#define EEPROM_OFF 0
-#define EEPROM_COOL 1
-#define EEPROM_HEAT 2
 
 //default temps to go to based on state
 #define DEFAULT_HEAT_TEMP 10
@@ -69,23 +92,23 @@
 #define ENABLE_CONTROL 6 //enable/disable heat/cool
 #define SELECT_CONTROL 7 //heat:0 cool: 1
 
-#define RESET 2
+#define BTN_RESET 2
 
-#define FAN_ON 7
-#define FAN_AUTO 6
+#define BTN_FAN_ON 7
+#define BTN_FAN_AUTO 6
 #define LED_FAN_ON 4
 #define LED_FAN_AUTO 3
 
 #define TEMP_UP 0
 #define TEMP_DOWN 1
 
-#define HEAT 5
+#define BTN_HEAT 5
 #define LED_HEAT 2
 
-#define OFF 4
+#define BTN_OFF 4
 #define LED_OFF 1
 
-#define COOL 3
+#define BTN_COOL 3
 #define LED_COOL 0
 
 uint8_t button_state;
@@ -95,10 +118,6 @@ const int debounce_time = 50;
 
 char buf[1024];
 char topicBuf[1024];
-
-char pressureBuf[16];
-char humidityBuf[16];
-char tempBuf[16];
 
 struct mqtt_wrapper_options mqtt_options;
 enum ConnState connState;
@@ -112,29 +131,19 @@ unsigned long nextRead = 0UL;
 unsigned long readInterval = 1000UL;
 
 unsigned long nextTimeout = 0UL;
-unsigned long timeoutInterval = 1000*3*60*60;
+unsigned long timeoutInterval = 0;
+//unsigned long timeoutInterval = 1000*3*60*60;
 
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R1, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ 5, /* data=*/ 4);
 Adafruit_BME280 bme;
-bool bmeConnected = true;
 
 //swing temp how far above or below the target has to go to actually control
-uint8_t swing;
 
-float targetTemp;
-float currentTemp;
-bool fanForced;
-bool heat;
-bool cool;
-
-//Currently outputting
-bool enabled;
-bool heatCool;
-bool currentFanForced;
 
 bool displayDirty;
 bool stateDirty;
-bool mqttDirty;
+bool controlDirty;
+bool outputDirty;
 
 uint8_t change_bit(uint8_t val, uint8_t num, bool bitval) {
   return (val & ~(1<<num)) | (bitval << num);
@@ -145,70 +154,64 @@ uint8_t change_bit(uint8_t val, uint8_t num, bool bitval) {
 
 //Also used for init
 void resetState() {
-  swing = EEPROM.read(2);
-  byte value = EEPROM.read(1);
+  controlState.swing = EEPROM.read(2);
+  byte mode = EEPROM.read(1);
   Serial.println("reset");
-  Serial.println(value);
-  switch((int)value) {
+  switch((int)mode) {
 #ifndef HEAT_ONLY
-    case EEPROM_COOL:
+    case COOL:
       Serial.println("COOL");
-      targetTemp = DEFAULT_COOL_TEMP;
-      heat = false;
-      cool = true;
+      controlState.target = DEFAULT_COOL_TEMP;
+      controlState.mode = COOL;
       break;
 #endif
-    case EEPROM_HEAT:
+    case HEAT:
       Serial.println("HEAT");
-      targetTemp = DEFAULT_HEAT_TEMP;
-      heat = true;
-      cool = false;
+      controlState.target = DEFAULT_HEAT_TEMP;
+      controlState.mode = HEAT;
       break;
-    case EEPROM_OFF:
+    case OFF:
     default:
       Serial.println("OFF");
-      targetTemp = DEFAULT_HEAT_TEMP;
-      heat = false;
-      cool = false;
+      controlState.target = DEFAULT_HEAT_TEMP;
+      controlState.mode = OFF;
       break;
   }
-  if(!bmeConnected) {
-    heat = false;
-    cool = false;
+  if(!currentSensorState.tempSensor) {
+    controlState.mode = OFF;
   }
-  fanForced = false;
+  controlState.fan = false;
   displayDirty = true;
   stateDirty = true;
 }
 
 uint8_t setHeat(uint8_t toWrite) {
-  if(!enabled || heatCool == 1) {
-    mqttDirty = true;
+  if(outputState.mode != HEAT) {
+    outputDirty = true;
+    DEBUG_PRINTLN("heat changed");
   }
-  enabled = true;
-  heatCool = 0;
+  outputState.mode = HEAT;
   toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
   toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 0);
-  toWrite = change_bit(toWrite, 7-FAN_CONTROL, 1);
   return toWrite;
 }
 
 uint8_t setCool(uint8_t toWrite) {
-  if(!enabled || heatCool == 0) {
-    mqttDirty = true;
+  if(outputState.mode != COOL) {
+    DEBUG_PRINTLN("cool changed");
+    outputDirty = true;
   }
-  enabled = true;
-  heatCool = 1;
+  outputState.mode = COOL;
   toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
   toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 1);
-  toWrite = change_bit(toWrite, 7-FAN_CONTROL, 1);
   return toWrite;
 }
 uint8_t setOff(uint8_t toWrite) {
-  if(enabled) {
-    mqttDirty = true;
+  if(outputState.mode != OFF) {
+    DEBUG_PRINTLN("off changed");
+    outputDirty = true;
   }
-  enabled = false;
+  outputState.mode = OFF;
   return change_bit(toWrite, 7-ENABLE_CONTROL, 0);
 }
 
@@ -216,15 +219,11 @@ void doControl() {
   uint8_t toWrite = 0;
 
   //status lights
-  toWrite = change_bit(toWrite, 7-LED_FAN_ON, fanForced);
-  toWrite = change_bit(toWrite, 7-LED_FAN_AUTO, !fanForced);
-  toWrite = change_bit(toWrite, 7-LED_HEAT, heat);
-  toWrite = change_bit(toWrite, 7-LED_COOL, cool);
-  toWrite = change_bit(toWrite, 7-LED_OFF, !heat && !cool);
-  //The status LEDs are pulled down to turn them on,
-  //the rest is set high to turn it on
-  //force fan on
-  toWrite = change_bit(toWrite, 7-FAN_CONTROL, fanForced);
+  toWrite = change_bit(toWrite, 7-LED_FAN_ON, controlState.fan);
+  toWrite = change_bit(toWrite, 7-LED_FAN_AUTO, !controlState.fan);
+  toWrite = change_bit(toWrite, 7-LED_HEAT, controlState.mode == HEAT);
+  toWrite = change_bit(toWrite, 7-LED_COOL, controlState.mode == COOL);
+  toWrite = change_bit(toWrite, 7-LED_OFF, controlState.mode == OFF);
 
   // heating logic
   /*
@@ -247,52 +246,68 @@ void doControl() {
    *
    *
    */
-  if(currentTemp < MIN_TEMP) {
+  if(currentSensorState.temp < MIN_TEMP) {
     DEBUG_PRINTLN("under min temp");
     toWrite = setHeat(toWrite);
-  } else if(heat) {
-    DEBUG_PRINT("swing ");
-    DEBUG_PRINTLN(swing);
-    DEBUG_PRINT("currentTemp ");
-    DEBUG_PRINTLN(currentTemp);
-    DEBUG_PRINT("targettTemp ");
-    DEBUG_PRINTLN(targetTemp);
-    DEBUG_PRINTLN(currentTemp + swing <= targetTemp);
-    if(currentTemp + swing <= targetTemp || (abs(currentTemp-targetTemp) < swing && enabled)) {
+  } else if(controlState.mode == HEAT) {
+    if(currentSensorState.temp < controlState.target - controlState.swing) {
       toWrite = setHeat(toWrite);
       DEBUG_PRINTLN("heat on");
-    } else  if(currentTemp - swing >= targetTemp || (abs(currentTemp-targetTemp) < swing && !enabled)) {
+    } else  if(currentSensorState.temp >= controlState.target + controlState.swing) {
       toWrite = setOff(toWrite);
       DEBUG_PRINTLN("heat off");
     } else {
-      DEBUG_PRINTLN("HEAT ELSE WRONG");
+      DEBUG_PRINTLN("HEAT inside swing; continue");
+      if(outputState.mode == HEAT) {
+        toWrite = setHeat(toWrite);
+      } else {
+        toWrite = setOff(toWrite);
+      }
     }
 #ifndef HEAT_ONLY
-  } else if(cool) {
-    DEBUG_PRINT("enabled ");
-    DEBUG_PRINTLN(enabled);
-    DEBUG_PRINT("swing ");
-    DEBUG_PRINTLN(swing);
-    DEBUG_PRINT("currentTemp ");
-    DEBUG_PRINTLN(currentTemp);
-    DEBUG_PRINT("targettTemp ");
-    DEBUG_PRINTLN(targetTemp);
-    DEBUG_PRINTLN(currentTemp + swing <= targetTemp);
-    if(currentTemp - swing >= targetTemp || (abs(currentTemp-targetTemp) < swing && enabled)) {
+  } else if(controlState.mode == COOL) {
+    //DEBUG_PRINTLN("COOLING");
+    //DEBUG_PRINTLN(currentSensorState.temp);
+    //DEBUG_PRINTLN(controlState.target);
+
+    //DEBUG_PRINTLN(currentSensorState.temp + controlState.swing <  controlState.target);
+    //DEBUG_PRINTLN(abs(currentSensorState.temp-controlState.target) <= controlState.swing);
+    //DEBUG_PRINTLN(outputState.mode != COOL);
+    if(currentSensorState.temp >= controlState.target + controlState.swing) {
       toWrite = setCool(toWrite);
       DEBUG_PRINTLN("cool on");
-    } else if(currentTemp + swing <  targetTemp || (abs(currentTemp-targetTemp) < swing && !enabled)) {
+    } else if(currentSensorState.temp < controlState.target - controlState.swing ) {
       DEBUG_PRINTLN("cool off");
       toWrite = setOff(toWrite);
     } else {
-      DEBUG_PRINTLN("COOL ELSE WRONG");
+      DEBUG_PRINTLN("COOL inside swing; continue");
+      if(outputState.mode == COOL) {
+        toWrite = setCool(toWrite);
+      } else {
+        toWrite = setOff(toWrite);
+      }
     }
 #endif
-  } else {
+  } else if(controlState.mode == OFF) {
     DEBUG_PRINTLN("off");
     //off
     toWrite = setOff(toWrite);
+  } else {
+    DEBUG_PRINTLN("holy fuck mode is broken");
+    //TODO: error to mqtt
   }
+
+  DEBUG_PRINTLN("FAN");
+  DEBUG_PRINTLN(outputState.fan);
+  DEBUG_PRINTLN(controlState.fan);
+  DEBUG_PRINTLN(outputState.mode != OFF);
+  // //!lastFan && (force fan || active) || lastFan && (!force fan && !active)
+  if((outputState.fan && (!controlState.fan && outputState.mode == OFF)) || (!outputState.fan && (controlState.fan || outputState.mode != OFF))) {
+    DEBUG_PRINTLN("Fan changed");
+    outputDirty = true;
+  }
+  outputState.fan = controlState.fan || (outputState.mode != OFF);
+  toWrite = change_bit(toWrite, 7-FAN_CONTROL, outputState.fan);
 
   // //write control
   //Serial.println("control update");
@@ -317,54 +332,53 @@ void handleButton(int button) {
   nextTimeout = millis() + timeoutInterval;
 
   stateDirty = true;
+  controlDirty = true;
+
   switch(button) {
-    case RESET:
+    case BTN_RESET:
       DEBUG_PRINTLN("button RESET");
       resetState();
       break;
-    case FAN_ON:
+    case BTN_FAN_ON:
       DEBUG_PRINTLN("button FAN_ON");
-      fanForced = true;
+      controlState.fan = true;
       break;
-    case FAN_AUTO:
+    case BTN_FAN_AUTO:
       DEBUG_PRINTLN("button FAN_AUTO");
-      fanForced = false;
+      controlState.fan = false;
       break;
     case TEMP_UP:
       DEBUG_PRINTLN("button TEMP_UP");
-      if(++targetTemp > MAX_TEMP) {
-        targetTemp = MAX_TEMP;
+      if(++(controlState.target) > MAX_TEMP) {
+        controlState.target = MAX_TEMP;
       }
       displayDirty = true;
       break;
     case TEMP_DOWN:
       DEBUG_PRINTLN("button TEMP_DOWN");
-      if(--targetTemp < MIN_TEMP) {
-        targetTemp = MIN_TEMP;
+      if(--(controlState.target) < MIN_TEMP) {
+        controlState.target = MIN_TEMP;
       }
       displayDirty = true;
       break;
-    case HEAT:
+    case BTN_HEAT:
       DEBUG_PRINTLN("button HEAT");
-      EEPROM.write(1, EEPROM_HEAT);
+      EEPROM.write(1, HEAT);
       EEPROM.commit();
-      heat = true;
-      cool = false;
+      controlState.mode = HEAT;
       break;
-    case OFF:
+    case BTN_OFF:
       DEBUG_PRINTLN("button OFF");
-      EEPROM.write(1, EEPROM_OFF);
+      EEPROM.write(1, OFF);
       EEPROM.commit();
-      heat = false;
-      cool = false;
+      controlState.mode = OFF;
       break;
 #ifndef HEAT_ONLY
-    case COOL:
+    case BTN_COOL:
       DEBUG_PRINTLN("button COOL");
-      EEPROM.write(1, EEPROM_COOL);
+      EEPROM.write(1, COOL);
       EEPROM.commit();
-      heat = false;
-      cool = true;
+      controlState.mode = COOL;
       break;
 #endif
   }
@@ -373,10 +387,10 @@ void handleButton(int button) {
 void display() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_inr38_mf);
-  itoa(targetTemp, buf, 10);
+  itoa(controlState.target, buf, 10);
   u8g2.drawStr(0, 116, buf);
-  if(bmeConnected) {
-    itoa(currentTemp, buf, 10);
+  if(currentSensorState.tempSensor) {
+    itoa(currentSensorState.temp, buf, 10);
     u8g2.drawStr(0, 50, buf);
   } else {
     u8g2.setFont(u8g2_font_unifont_t_symbols);
@@ -399,46 +413,76 @@ void display() {
 }
 
 void readTemp() {
-  if(bmeConnected) {
-    currentTemp = bme.readTemperature();
-    dtostrf(currentTemp, 0, 2, tempBuf);
+  if(currentSensorState.tempSensor) {
+    //TODO: sensor delta detection
+    currentSensorState.temp = bme.readTemperature();
+    currentSensorState.pressure = bme.readPressure();
+    currentSensorState.humidity = bme.readHumidity();
   } else {
-    currentTemp = 10;
+    currentSensorState.temp = 10;
   }
+  //TODO: is this the correct thing? I think it makes it publish a lot
   displayDirty = true;
   stateDirty = true;
 }
 
-void reportState(PubSubClient *client) {
-  if(bmeConnected) {
-    dtostrf(bme.readPressure(), 0, 2, pressureBuf);
-    dtostrf(bme.readHumidity(), 0, 1, humidityBuf);
+void reportStatus(PubSubClient *client) {
+  if(controlState.mode != mqttControlState.mode) {
+    mqttControlState.mode = controlState.mode;
+    sprintf(topicBuf, "stat/%s/mode", TOPIC);
+    client->publish(topicBuf, mqttControlState.mode == OFF ? "off" : mqttControlState.mode == HEAT ? "heat" : "cool");
+  }
+  if(controlState.fan != mqttControlState.fan) {
+    mqttControlState.fan = controlState.fan;
+    sprintf(topicBuf, "stat/%s/fan", TOPIC);
+    client->publish(topicBuf, mqttControlState.fan ? "on" : "auto");
+  }
+  if(controlState.target != mqttControlState.target) {
+    mqttControlState.target = controlState.target;
+    sprintf(topicBuf, "stat/%s/target", TOPIC);
+    sprintf(buf, "%d", mqttControlState.target);
+    client->publish(topicBuf, buf);
+  }
+  if(controlState.swing != mqttControlState.swing) {
+    mqttControlState.swing = controlState.swing;
+    sprintf(topicBuf, "stat/%s/swing", TOPIC);
+    sprintf(buf, "%d", mqttControlState.swing);
+    client->publish(topicBuf, buf);
+  }
+  if(controlState.timeout != mqttControlState.timeout) {
+    mqttControlState.timeout = controlState.timeout;
+    sprintf(topicBuf, "stat/%s/timeout", TOPIC);
+    sprintf(buf, "%d", mqttControlState.timeout);
+    client->publish(topicBuf, buf);
+  }
+}
+
+void reportTelemetry(PubSubClient *client) {
+  if(currentSensorState.tempSensor) {
     sprintf(topicBuf, "tele/%s/bme280", TOPIC);
-    sprintf(buf, "{\"Temperature\":%s, \"Pressure\":%s, \"Humidity\":%s}", tempBuf, pressureBuf, humidityBuf);
+    sprintf(buf, "{\"temperature\":");
+    dtostrf(currentSensorState.temp, 0, 2, buf + strlen(buf));
+    sprintf(buf + strlen(buf), ", \"pressure\":");
+    dtostrf(currentSensorState.pressure, 0, 1, buf + strlen(buf));
+    sprintf(buf + strlen(buf), ", \"humidity\":");
+    dtostrf(currentSensorState.humidity, 0, 1, buf + strlen(buf));
+    sprintf(buf + strlen(buf), "}");
     client->publish(topicBuf, buf);
   } else {
     sprintf(topicBuf, "tele/%s/error", TOPIC);
     client->publish(topicBuf, "bme280 DISCONNECTED");
   }
+}
 
-  sprintf(topicBuf, "tele/%s/request", TOPIC);
-  sprintf(buf, "{\"TargetTemp\":");
-  itoa(targetTemp, buf + strlen(buf), 10);
-  //TODO: move all these to publish to their topics if changed
-  //TODO: status
-  sprintf(buf + strlen(buf), ", \"requested\":\"%s\", \"fan\":\"%s\"}", (!heat && !cool) ? "off" : heat ? "heat" : "cool", fanForced ? "on" : "auto");
-  client->publish(topicBuf, buf);
-
+void reportOutput(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/output", TOPIC);
-  //TODO: Remove swing
-  //TODO: Fan as on/off not on/auto
-  sprintf(buf, "{\"output\":\"%s\", \"fan\":\"%s\", \"swing\":%d}", !enabled ? "off" : heatCool ? "cool" : "heat", fanForced ? "on" : "auto", swing);
+  sprintf(buf, "{\"state\": \"%s\", \"fan\": \"%s\"}", outputState.mode == OFF ? "off" : outputState.mode == HEAT ? "heat" : "cool", outputState.fan ? "on" : "off");
   client->publish(topicBuf, buf);
 }
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
   if(length == 0) {
-    reportState(client);
+    reportStatus(client);
     return;
   }
   //Topics
@@ -451,33 +495,31 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   if (strcmp(topic, "target") == 0) {
     payload[length] = '\0';
     sprintf(topicBuf, "stat/%s/target", TOPIC);
-    targetTemp = atoi((char*)payload);
-    if(targetTemp < MIN_TEMP) {
-      targetTemp = MIN_TEMP;
+    controlState.target = atoi((char*)payload);
+    if(controlState.target < MIN_TEMP) {
+      controlState.target = MIN_TEMP;
     }
-    if(targetTemp > MAX_TEMP) {
-      targetTemp = MAX_TEMP;
+    if(controlState.target > MAX_TEMP) {
+      controlState.target = MAX_TEMP;
     }
     nextTimeout = millis() + timeoutInterval;
     stateDirty = true;
     displayDirty = true;
-    itoa(targetTemp, buf, 10);
+    itoa(controlState.target, buf, 10);
     client->publish(topicBuf, buf);
   } else if (strncmp(topic, "mode", length - 1) == 0) {
     stateDirty = true;
     sprintf(topicBuf, "stat/%s/mode", TOPIC);
     if(strncmp((char*)payload, "heat", length-1) == 0) {
-      heat = true;
-      cool = false;
-      EEPROM.write(1, EEPROM_HEAT);
+      controlState.mode = HEAT;
+      EEPROM.write(1, HEAT);
       EEPROM.commit();
       nextTimeout = millis() + timeoutInterval;
       client->publish(topicBuf, "heat");
     } else if(strncmp((char*)payload, "cool", length-1) == 0) {
 #ifndef HEAT_ONLY
-      heat = false;
-      cool = true;
-      EEPROM.write(1, EEPROM_COOL);
+      controlState.mode = COOL;
+      EEPROM.write(1, COOL);
       EEPROM.commit();
       nextTimeout = millis() + timeoutInterval;
       client->publish(topicBuf, "cool");
@@ -485,9 +527,8 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       client->publish(topicBuf, "cool not supported");
 #endif
     } else if(strncmp((char*)payload, "off", length-1) == 0) {
-      heat = false;
-      cool = false;
-      EEPROM.write(1, EEPROM_OFF);
+      controlState.mode = OFF;
+      EEPROM.write(1, OFF);
       EEPROM.commit();
       nextTimeout = millis() + timeoutInterval;
       client->publish(topicBuf, "off");
@@ -498,11 +539,11 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     stateDirty = true;
     sprintf(topicBuf, "stat/%s/fan", TOPIC);
     if(strncmp((char*)payload, "auto", 4) == 0) {
-      fanForced = false;
+      controlState.fan = false;
       nextTimeout = millis() + timeoutInterval;
       client->publish(topicBuf, "auto");
     } else if(strncmp((char*)payload, "on", 2) == 0) {
-      fanForced = true;
+      controlState.fan = true;
       nextTimeout = millis() + timeoutInterval;
       client->publish(topicBuf, "on");
     } else {
@@ -513,10 +554,10 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     uint8_t newSwing = atoi((char*)payload);
     sprintf(topicBuf, "stat/%s/swing", TOPIC);
     if(newSwing <= 3 && newSwing >= 0) {
-      swing = newSwing;
-      EEPROM.write(2, swing);
+      controlState.swing = newSwing;
+      EEPROM.write(2, controlState.swing);
       EEPROM.commit();
-      sprintf(buf, "%d", swing);
+      sprintf(buf, "%d", controlState.swing);
       client->publish(topicBuf, buf);
     } else {
       client->publish(topicBuf, "new swing out of range 0-3");
@@ -540,7 +581,8 @@ void connectSuccess(PubSubClient* client, char* ip) {
   // u8g2.drawStr(0,10,ip);
   // u8g2.sendBuffer();
   readTemp();
-  reportState(client);
+  reportTelemetry(client);
+  reportStatus(client);
 }
 
 
@@ -551,7 +593,7 @@ void setup() {
   EEPROM.begin(3);
   if(EEPROM.read(0) != MAGIC_EEPROM_NUMBER) {
       EEPROM.write(0, MAGIC_EEPROM_NUMBER);
-      EEPROM.write(1, EEPROM_OFF);
+      EEPROM.write(1, OFF);
       EEPROM.write(2, 1);//swing
   }
   resetState();
@@ -581,9 +623,8 @@ void setup() {
   // --- Sensors ---
   if (!bme.begin(0x76)) {
     Serial.println("Could not find BMP 280 sensor");
-    bmeConnected = false;
-    heat = false;
-    cool = false;
+    currentSensorState.tempSensor = false;
+    controlState.mode = OFF;
   }
 
   mcp.begin();
@@ -620,10 +661,19 @@ uint8_t readLow() {
 
 
 void connectedLoop(PubSubClient* client) {
-  if( (long)( millis() - nextStatus ) >= 0 || displayDirty || mqttDirty) {
+  if(controlDirty) {
+    controlDirty = false;
+    reportStatus(client);
+  }
+  //set in doControl, the outputs changed
+  if(outputDirty) {
+    outputDirty = false;
+    reportOutput(client);
+  }
+  if( (long)( millis() - nextStatus ) >= 0) {
     nextStatus = millis() + statusInterval;
-    mqttDirty = false;
-    reportState(client);
+    reportTelemetry(client);
+    reportOutput(client);
   }
 }
 
@@ -634,7 +684,7 @@ void loop() {
     nextRead = millis() + readInterval;
     readTemp();
   }
-  if( (long)( millis() - nextTimeout ) >= 0) {
+  if( timeoutInterval != 0 && (long)( millis() - nextTimeout ) >= 0) {
     nextTimeout = millis() + timeoutInterval;
     resetState();
   }
