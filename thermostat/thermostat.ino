@@ -56,31 +56,32 @@ union TimeoutInterval {
 #define DEFAULT_TIMEOUT_INTERVAL 3 * 60 * 60 * 1000UL
 
 enum Mode { OFF = 0, HEAT, COOL };
-struct controlState {
+struct ControlState {
   enum Mode mode;
   bool fan;
   int target;
   int swing;
   TimeoutInterval timeout;
 };
-struct sensorState {
+struct SensorState {
   float temp;
   float pressure;
   float humidity;
   bool batteryPower;
   bool tempSensor; //if sensor connected
 };
-struct outputState {
+struct OutputState {
   enum Mode mode;
+  uint32_t fanDelayEnd;
   bool fan;
 };
 
-struct controlState controlState;
-struct controlState mqttControlState;
+struct ControlState controlState;
+struct ControlState mqttControlState;
 
-struct sensorState currentSensorState;
+struct SensorState currentSensorState;
 
-struct outputState outputState;
+struct OutputState outputState;
 
 #define DEBUG
 
@@ -200,6 +201,11 @@ uint8_t setHeat(uint8_t toWrite) {
   if(outputState.mode != HEAT) {
     outputDirty = true;
     DEBUG_PRINTLN("heat changed");
+    outputState.fanDelayEnd = millis() + 30*1000;
+    //We use if it's 0 to mean we're done waiting;
+    if(outputState.fanDelayEnd == 0) {
+      outputState.fanDelayEnd = 1;
+    }
   }
   outputState.mode = HEAT;
   toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
@@ -211,6 +217,11 @@ uint8_t setCool(uint8_t toWrite) {
   if(outputState.mode != COOL) {
     DEBUG_PRINTLN("cool changed");
     outputDirty = true;
+    outputState.fanDelayEnd = millis() + 30*1000;
+    //We use if it's 0 to mean we're done waiting;
+    if(outputState.fanDelayEnd == 0) {
+      outputState.fanDelayEnd = 1;
+    }
   }
   outputState.mode = COOL;
   toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
@@ -312,12 +323,12 @@ void doControl() {
   //DEBUG_PRINTLN(outputState.fan);
   //DEBUG_PRINTLN(controlState.fan);
   //DEBUG_PRINTLN(outputState.mode != OFF);
-  // //!lastFan && (force fan || active) || lastFan && (!force fan && !active)
-  if((outputState.fan && (!controlState.fan && outputState.mode == OFF)) || (!outputState.fan && (controlState.fan || outputState.mode != OFF))) {
+  // //(lastFan && (!force fan && !active)) || (!lastFan && (force fan || (active && fanDelay ready)))
+  if((outputState.fan && (!controlState.fan && outputState.mode == OFF)) || (!outputState.fan && (controlState.fan || (outputState.mode != OFF && outputState.fanDelayEnd == 0)))) {
     DEBUG_PRINTLN("Fan changed");
     outputDirty = true;
   }
-  outputState.fan = controlState.fan || (outputState.mode != OFF);
+  outputState.fan = controlState.fan || (outputState.mode != OFF && outputState.fanDelayEnd == 0);
   toWrite = change_bit(toWrite, 7-FAN_CONTROL, outputState.fan);
 
   // //write control
@@ -706,6 +717,13 @@ void loop() {
     nextTimeout = millis() + controlState.timeout.timeout;
     resetState();
   }
+  if( outputState.fanDelayEnd != 0 && (long)( millis() - outputState.fanDelayEnd ) >= 0) {
+    outputState.fanDelayEnd = 0;
+    stateDirty = true;
+    //TODO: turn fan on
+  }
+
+
 
   //mqtt loop called before this
   if(displayDirty) {
