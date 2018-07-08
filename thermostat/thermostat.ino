@@ -40,13 +40,28 @@
 //#define HEAT_ONLY
 #endif
 
+uint32_t nextStatus = 0UL;
+uint32_t statusInterval = 60000UL;
+
+uint32_t nextRead = 0UL;
+uint32_t readInterval = 1000UL;
+
+uint32_t nextTimeout = 0UL;
+
+union TimeoutInterval {
+    uint32_t timeout;
+    uint8_t octets[4];
+};
+
+#define DEFAULT_TIMEOUT_INTERVAL 3 * 60 * 60 * 1000UL
+
 enum Mode { OFF = 0, HEAT, COOL };
 struct controlState {
   enum Mode mode;
   bool fan;
   int target;
   int swing;
-  uint32_t timeout;
+  TimeoutInterval timeout;
 };
 struct sensorState {
   float temp;
@@ -78,7 +93,7 @@ struct outputState outputState;
 #endif
 
 //magic numbers stored in eeprom to set boot state
-#define MAGIC_EEPROM_NUMBER 0x42
+#define MAGIC_EEPROM_NUMBER 0x44
 
 //default temps to go to based on state
 #define DEFAULT_HEAT_TEMP 10
@@ -124,15 +139,6 @@ enum ConnState connState;
 
 Adafruit_MCP23017 mcp;
 
-unsigned long nextStatus = 0UL;
-unsigned long statusInterval = 60000UL;
-
-unsigned long nextRead = 0UL;
-unsigned long readInterval = 1000UL;
-
-unsigned long nextTimeout = 0UL;
-unsigned long timeoutInterval = 0;
-//unsigned long timeoutInterval = 1000*3*60*60;
 
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R1, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ 5, /* data=*/ 4);
 Adafruit_BME280 bme;
@@ -154,9 +160,14 @@ uint8_t change_bit(uint8_t val, uint8_t num, bool bitval) {
 
 //Also used for init
 void resetState() {
+  Serial.println("reset");
   controlState.swing = EEPROM.read(2);
   byte mode = EEPROM.read(1);
-  Serial.println("reset");
+  Serial.println("start read timeout");
+  for(int i=0; i<4; ++i) {
+    controlState.timeout.octets[i] = EEPROM.read(3+i);
+  }
+
   switch((int)mode) {
 #ifndef HEAT_ONLY
     case COOL:
@@ -297,10 +308,10 @@ void doControl() {
     //TODO: error to mqtt
   }
 
-  DEBUG_PRINTLN("FAN");
-  DEBUG_PRINTLN(outputState.fan);
-  DEBUG_PRINTLN(controlState.fan);
-  DEBUG_PRINTLN(outputState.mode != OFF);
+  //DEBUG_PRINTLN("FAN");
+  //DEBUG_PRINTLN(outputState.fan);
+  //DEBUG_PRINTLN(controlState.fan);
+  //DEBUG_PRINTLN(outputState.mode != OFF);
   // //!lastFan && (force fan || active) || lastFan && (!force fan && !active)
   if((outputState.fan && (!controlState.fan && outputState.mode == OFF)) || (!outputState.fan && (controlState.fan || outputState.mode != OFF))) {
     DEBUG_PRINTLN("Fan changed");
@@ -329,7 +340,7 @@ void doControl() {
 }
 
 void handleButton(int button) {
-  nextTimeout = millis() + timeoutInterval;
+  nextTimeout = millis() + controlState.timeout.timeout;
 
   stateDirty = true;
   controlDirty = true;
@@ -449,10 +460,10 @@ void reportStatus(PubSubClient *client) {
     sprintf(buf, "%d", mqttControlState.swing);
     client->publish(topicBuf, buf);
   }
-  if(controlState.timeout != mqttControlState.timeout) {
-    mqttControlState.timeout = controlState.timeout;
+  if(controlState.timeout.timeout != mqttControlState.timeout.timeout) {
+    mqttControlState.timeout.timeout = controlState.timeout.timeout;
     sprintf(topicBuf, "stat/%s/timeout", TOPIC);
-    sprintf(buf, "%d", mqttControlState.timeout);
+    sprintf(buf, "%d", mqttControlState.timeout.timeout);
     client->publish(topicBuf, buf);
   }
 }
@@ -502,7 +513,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     if(controlState.target > MAX_TEMP) {
       controlState.target = MAX_TEMP;
     }
-    nextTimeout = millis() + timeoutInterval;
+    nextTimeout = millis() + controlState.timeout.timeout;
     stateDirty = true;
     displayDirty = true;
     itoa(controlState.target, buf, 10);
@@ -514,14 +525,14 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       controlState.mode = HEAT;
       EEPROM.write(1, HEAT);
       EEPROM.commit();
-      nextTimeout = millis() + timeoutInterval;
+      nextTimeout = millis() + controlState.timeout.timeout;
       client->publish(topicBuf, "heat");
     } else if(strncmp((char*)payload, "cool", length-1) == 0) {
 #ifndef HEAT_ONLY
       controlState.mode = COOL;
       EEPROM.write(1, COOL);
       EEPROM.commit();
-      nextTimeout = millis() + timeoutInterval;
+      nextTimeout = millis() + controlState.timeout.timeout;
       client->publish(topicBuf, "cool");
 #else
       client->publish(topicBuf, "cool not supported");
@@ -530,7 +541,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       controlState.mode = OFF;
       EEPROM.write(1, OFF);
       EEPROM.commit();
-      nextTimeout = millis() + timeoutInterval;
+      nextTimeout = millis() + controlState.timeout.timeout;
       client->publish(topicBuf, "off");
     } else {
       client->publish(topicBuf, "bad command");
@@ -540,11 +551,11 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     sprintf(topicBuf, "stat/%s/fan", TOPIC);
     if(strncmp((char*)payload, "auto", 4) == 0) {
       controlState.fan = false;
-      nextTimeout = millis() + timeoutInterval;
+      nextTimeout = millis() + controlState.timeout.timeout;
       client->publish(topicBuf, "auto");
     } else if(strncmp((char*)payload, "on", 2) == 0) {
       controlState.fan = true;
-      nextTimeout = millis() + timeoutInterval;
+      nextTimeout = millis() + controlState.timeout.timeout;
       client->publish(topicBuf, "on");
     } else {
       client->publish(topicBuf, "bad command");
@@ -590,11 +601,18 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Starting");
 
-  EEPROM.begin(3);
+  EEPROM.begin(8);
   if(EEPROM.read(0) != MAGIC_EEPROM_NUMBER) {
+
       EEPROM.write(0, MAGIC_EEPROM_NUMBER);
       EEPROM.write(1, OFF);
       EEPROM.write(2, 1);//swing
+      controlState.timeout.timeout = DEFAULT_TIMEOUT_INTERVAL;
+      controlState.timeout.timeout = DEFAULT_TIMEOUT_INTERVAL;
+      for(int i=0; i<4; ++i) {
+        EEPROM.write(3+i, controlState.timeout.octets[i]);
+      }
+
   }
   resetState();
 
@@ -684,8 +702,8 @@ void loop() {
     nextRead = millis() + readInterval;
     readTemp();
   }
-  if( timeoutInterval != 0 && (long)( millis() - nextTimeout ) >= 0) {
-    nextTimeout = millis() + timeoutInterval;
+  if( controlState.timeout.timeout != 0 && (long)( millis() - nextTimeout ) >= 0) {
+    nextTimeout = millis() + controlState.timeout.timeout;
     resetState();
   }
 
