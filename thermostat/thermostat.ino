@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <errno.h>
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <U8g2lib.h>
@@ -282,7 +283,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     displayDirty = true;
     itoa(controlState.target, buf, 10);
     client->publish(topicBuf, buf);
-  } else if (strncmp(topic, "mode", length - 1) == 0) {
+  } else if (strncmp(topic, "mode", strlen(topic)) == 0) {
     stateDirty = true;
     sprintf(topicBuf, "stat/%s/mode", TOPIC);
     if(strncmp((char*)payload, "heat", length-1) == 0) {
@@ -308,9 +309,10 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       nextTimeout = millis() + controlState.timeout.timeout;
       client->publish(topicBuf, "off");
     } else {
-      client->publish(topicBuf, "bad command");
+      sprintf(topicBuf, "stat/%s/error", TOPIC);
+      client->publish(topicBuf, "bad mode command");
     }
-  } else if (strncmp(topic, "fan", length - 1) == 0) {
+  } else if (strcmp(topic, "fan") == 0) {
     stateDirty = true;
     sprintf(topicBuf, "stat/%s/fan", TOPIC);
     if(strncmp((char*)payload, "auto", 4) == 0) {
@@ -322,21 +324,45 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       nextTimeout = millis() + controlState.timeout.timeout;
       client->publish(topicBuf, "on");
     } else {
-      client->publish(topicBuf, "bad command");
+      sprintf(topicBuf, "stat/%s/error", TOPIC);
+      client->publish(topicBuf, "bad fan command");
     }
-  } else if (strncmp(topic, "swing", length - 1) == 0) {
+  } else if (strcmp(topic, "swing") == 0) {
     payload[length] = '\0';
     uint8_t newSwing = atoi((char*)payload);
-    sprintf(topicBuf, "stat/%s/swing", TOPIC);
     if(newSwing <= 3 && newSwing >= 0) {
       controlState.swing = newSwing;
       EEPROM.write(2, controlState.swing);
       EEPROM.commit();
       sprintf(buf, "%d", controlState.swing);
+      sprintf(topicBuf, "stat/%s/swing", TOPIC);
       client->publish(topicBuf, buf);
     } else {
+      sprintf(topicBuf, "stat/%s/error", TOPIC);
       client->publish(topicBuf, "new swing out of range 0-3");
     }
+  } else if (strcmp(topic, "timeout") == 0) {
+    char* endptr;
+    uint32_t timeout = strtoul((char*)payload, &endptr, 10);
+    if(endptr == (char*)payload || *__errno()) {
+      //We didn't read anything or error
+      sprintf(topicBuf, "stat/%s/error", TOPIC);
+      sprintf(buf, "timeout: bad value '%.*s'", length, (char*)payload);
+      client->publish(topicBuf, buf);
+    } else {
+      //Valid number from payload
+      //timeoutInterval.timeout = timeout;
+      //for(int i=0; i<4; ++i) {
+      //  EEPROM.write(3+i, timeoutInterval.octets[i]);
+      //}
+      //sprintf(topicBuf, "stat/%s/timeout", TOPIC);
+      sprintf(buf, "%l", timeout);
+      client->publish(topicBuf, buf);
+    }
+  } else if (strcmp(topic, "run") == 0) {
+    nextTimeout = millis();
+    sprintf(topicBuf, "stat/%s/runReason", TOPIC);
+    client->publish(topicBuf, "mqtt");
   } else {
     sprintf(topicBuf, "stat/%s/what", TOPIC);
     client->publish(topicBuf, "bad command");
