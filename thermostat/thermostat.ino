@@ -7,38 +7,9 @@
 #include "Adafruit_MCP23017.h"
 #include <mqtt-wrapper.h>
 
+#include "thermostat.h"
+#include "doControl.h"
 #include "i3Logo.h"
-
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
-#ifndef NAME
-#define NAME "NEW-thermostat"
-#endif
-
-#ifndef TOPIC
-#define TOPIC "i3/program-me/NEW-thermostat"
-#endif
-
-#ifndef WIFI_SSID
-#define WIFI_SSID "i3detroit-wpa"
-#endif
-
-#ifndef WIFI_PASSWORD
-#define WIFI_PASSWORD "i3detroit"
-#endif
-
-#ifndef MQTT_SERVER
-#define MQTT_SERVER "10.13.0.22"
-#endif
-
-#ifndef MQTT_PORT
-#define MQTT_PORT 1883
-#endif
-
-//Set if no cool
-#ifndef HEAT_ONLY
-//#define HEAT_ONLY
-#endif
 
 uint32_t nextStatus = 0UL;
 uint32_t statusInterval = 60000UL;
@@ -48,84 +19,12 @@ uint32_t readInterval = 1000UL;
 
 uint32_t nextTimeout = 0UL;
 
-union TimeoutInterval {
-    uint32_t timeout;
-    uint8_t octets[4];
-};
-
-#define DEFAULT_TIMEOUT_INTERVAL 3 * 60 * 60 * 1000UL
-
-enum Mode { OFF = 0, HEAT, COOL };
-struct ControlState {
-  enum Mode mode;
-  bool fan;
-  int target;
-  int swing;
-  TimeoutInterval timeout;
-};
-struct SensorState {
-  float temp;
-  float pressure;
-  float humidity;
-  bool batteryPower;
-  bool tempSensor; //if sensor connected
-};
-struct OutputState {
-  enum Mode mode;
-  uint32_t fanDelayEnd;
-  bool fan;
-};
-
 struct ControlState controlState;
 struct ControlState mqttControlState;
 
-struct SensorState currentSensorState;
+struct SensorState sensorState;
 
 struct OutputState outputState;
-
-#define DEBUG
-
-#ifdef DEBUG
-# define DEBUG_PRINT(x) Serial.print(x);
-# define DEBUG_PRINTLN(x) Serial.println(x);
-#else
-# define DEBUG_PRINT(x) do {} while (0)
-# define DEBUG_PRINTLN(x) do {} while (0)
-#endif
-
-//magic numbers stored in eeprom to set boot state
-#define MAGIC_EEPROM_NUMBER 0x44
-
-//default temps to go to based on state
-#define DEFAULT_HEAT_TEMP 10
-#define DEFAULT_COOL_TEMP 25
-
-//limits for target temp; and will always heat below min temp
-#define MIN_TEMP 5
-#define MAX_TEMP 42
-
-#define FAN_CONTROL 5 //force on fan, 0 is on. If 1, is auto, furnace will tunr on fan
-#define ENABLE_CONTROL 6 //enable/disable heat/cool
-#define SELECT_CONTROL 7 //heat:0 cool: 1
-
-#define BTN_RESET 2
-
-#define BTN_FAN_ON 7
-#define BTN_FAN_AUTO 6
-#define LED_FAN_ON 4
-#define LED_FAN_AUTO 3
-
-#define TEMP_UP 0
-#define TEMP_DOWN 1
-
-#define BTN_HEAT 5
-#define LED_HEAT 2
-
-#define BTN_OFF 4
-#define LED_OFF 1
-
-#define BTN_COOL 3
-#define LED_COOL 0
 
 uint8_t button_state;
 int button_state_last[] = {1,1,1,1,1,1,1,1};
@@ -150,11 +49,6 @@ Adafruit_BME280 bme;
 bool displayDirty;
 bool stateDirty;
 bool controlDirty;
-bool outputDirty;
-
-uint8_t change_bit(uint8_t val, uint8_t num, bool bitval) {
-  return (val & ~(1<<num)) | (bitval << num);
-}
 
 
 
@@ -189,7 +83,7 @@ void resetState() {
       controlState.mode = OFF;
       break;
   }
-  if(!currentSensorState.tempSensor) {
+  if(!sensorState.tempSensor) {
     controlState.mode = OFF;
   }
   controlState.fan = false;
@@ -197,158 +91,6 @@ void resetState() {
   stateDirty = true;
 }
 
-uint8_t setHeat(uint8_t toWrite) {
-  if(outputState.mode != HEAT) {
-    outputDirty = true;
-    DEBUG_PRINTLN("heat changed");
-    outputState.fanDelayEnd = millis() + 30*1000;
-    //We use if it's 0 to mean we're done waiting;
-    if(outputState.fanDelayEnd == 0) {
-      outputState.fanDelayEnd = 1;
-    }
-  }
-  outputState.mode = HEAT;
-  toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
-  toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 0);
-  return toWrite;
-}
-
-uint8_t setCool(uint8_t toWrite) {
-  if(outputState.mode != COOL) {
-    DEBUG_PRINTLN("cool changed");
-    outputDirty = true;
-    outputState.fanDelayEnd = millis() + 30*1000;
-    //We use if it's 0 to mean we're done waiting;
-    if(outputState.fanDelayEnd == 0) {
-      outputState.fanDelayEnd = 1;
-    }
-  }
-  outputState.mode = COOL;
-  toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
-  toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 1);
-  return toWrite;
-}
-uint8_t setOff(uint8_t toWrite) {
-  if(outputState.mode != OFF) {
-    DEBUG_PRINTLN("off changed");
-    outputDirty = true;
-  }
-  outputState.mode = OFF;
-  return change_bit(toWrite, 7-ENABLE_CONTROL, 0);
-}
-
-void doControl() {
-  uint8_t toWrite = 0;
-
-  //status lights
-  toWrite = change_bit(toWrite, 7-LED_FAN_ON, controlState.fan);
-  toWrite = change_bit(toWrite, 7-LED_FAN_AUTO, !controlState.fan);
-  toWrite = change_bit(toWrite, 7-LED_HEAT, controlState.mode == HEAT);
-  toWrite = change_bit(toWrite, 7-LED_COOL, controlState.mode == COOL);
-  toWrite = change_bit(toWrite, 7-LED_OFF, controlState.mode == OFF);
-
-  // heating logic
-  /*
-   * if heat
-   *
-   *    if(current + swing < target)
-   *        below temp, heat
-   *        start heat
-   *    if(current - swing > target)
-   *        above
-   *        stop
-   *    if(current > target-swing && current < target+swing && enabled)
-   *        heating through swing
-   *        heat
-   *    if(current > target-swing && current < target+swing && !enabled)
-   *        //cooling through swing
-   *        stop
-   *    else
-   *        there is no else
-   *
-   *
-   */
-  if(currentSensorState.temp < MIN_TEMP) {
-    DEBUG_PRINTLN("under min temp");
-    toWrite = setHeat(toWrite);
-  } else if(controlState.mode == HEAT) {
-    if(currentSensorState.temp < controlState.target - controlState.swing) {
-      toWrite = setHeat(toWrite);
-      DEBUG_PRINTLN("heat on");
-    } else  if(currentSensorState.temp >= controlState.target + controlState.swing) {
-      toWrite = setOff(toWrite);
-      DEBUG_PRINTLN("heat off");
-    } else {
-      DEBUG_PRINTLN("HEAT inside swing; continue");
-      if(outputState.mode == HEAT) {
-        toWrite = setHeat(toWrite);
-      } else {
-        toWrite = setOff(toWrite);
-      }
-    }
-#ifndef HEAT_ONLY
-  } else if(controlState.mode == COOL) {
-    //DEBUG_PRINTLN("COOLING");
-    //DEBUG_PRINTLN(currentSensorState.temp);
-    //DEBUG_PRINTLN(controlState.target);
-
-    //DEBUG_PRINTLN(currentSensorState.temp + controlState.swing <  controlState.target);
-    //DEBUG_PRINTLN(abs(currentSensorState.temp-controlState.target) <= controlState.swing);
-    //DEBUG_PRINTLN(outputState.mode != COOL);
-    if(currentSensorState.temp >= controlState.target + controlState.swing) {
-      toWrite = setCool(toWrite);
-      DEBUG_PRINTLN("cool on");
-    } else if(currentSensorState.temp < controlState.target - controlState.swing ) {
-      DEBUG_PRINTLN("cool off");
-      toWrite = setOff(toWrite);
-    } else {
-      DEBUG_PRINTLN("COOL inside swing; continue");
-      if(outputState.mode == COOL) {
-        toWrite = setCool(toWrite);
-      } else {
-        toWrite = setOff(toWrite);
-      }
-    }
-#endif
-  } else if(controlState.mode == OFF) {
-    DEBUG_PRINTLN("off");
-    //off
-    toWrite = setOff(toWrite);
-  } else {
-    DEBUG_PRINTLN("holy fuck mode is broken");
-    //TODO: error to mqtt
-  }
-
-  //DEBUG_PRINTLN("FAN");
-  //DEBUG_PRINTLN(outputState.fan);
-  //DEBUG_PRINTLN(controlState.fan);
-  //DEBUG_PRINTLN(outputState.mode != OFF);
-  // //(lastFan && (!force fan && !active)) || (!lastFan && (force fan || (active && fanDelay ready)))
-  if((outputState.fan && (!controlState.fan && outputState.mode == OFF)) || (!outputState.fan && (controlState.fan || (outputState.mode != OFF && outputState.fanDelayEnd == 0)))) {
-    DEBUG_PRINTLN("Fan changed");
-    outputDirty = true;
-  }
-  outputState.fan = controlState.fan || (outputState.mode != OFF && outputState.fanDelayEnd == 0);
-  toWrite = change_bit(toWrite, 7-FAN_CONTROL, outputState.fan);
-
-  // //write control
-  //Serial.println("control update");
-  //Serial.println(fanForced);
-  //Serial.println(heat);
-  //Serial.println(cool);
-  //Serial.println(toWrite, BIN);
-
-  /*
-   * EN  SEL | H  C
-   * 0   0   | 0  1
-   * 0   1   | 1  0
-   * 1   0   | 0  0
-   * 1   1   | 0  0
-   */
-
-  writeLow(toWrite);
-  //Serial.println(writeLow(toWrite), BIN);
-}
 
 void handleButton(int button) {
   nextTimeout = millis() + controlState.timeout.timeout;
@@ -411,8 +153,8 @@ void display() {
   u8g2.setFont(u8g2_font_inr38_mf);
   itoa(controlState.target, buf, 10);
   u8g2.drawStr(0, 116, buf);
-  if(currentSensorState.tempSensor) {
-    itoa(currentSensorState.temp, buf, 10);
+  if(sensorState.tempSensor) {
+    itoa(sensorState.temp, buf, 10);
     u8g2.drawStr(0, 50, buf);
   } else {
     u8g2.setFont(u8g2_font_unifont_t_symbols);
@@ -435,13 +177,13 @@ void display() {
 }
 
 void readTemp() {
-  if(currentSensorState.tempSensor) {
+  if(sensorState.tempSensor) {
     //TODO: sensor delta detection
-    currentSensorState.temp = bme.readTemperature();
-    currentSensorState.pressure = bme.readPressure();
-    currentSensorState.humidity = bme.readHumidity();
+    sensorState.temp = bme.readTemperature();
+    sensorState.pressure = bme.readPressure();
+    sensorState.humidity = bme.readHumidity();
   } else {
-    currentSensorState.temp = 10;
+    sensorState.temp = 10;
   }
   //TODO: is this the correct thing? I think it makes it publish a lot
   displayDirty = true;
@@ -480,14 +222,14 @@ void reportStatus(PubSubClient *client) {
 }
 
 void reportTelemetry(PubSubClient *client) {
-  if(currentSensorState.tempSensor) {
+  if(sensorState.tempSensor) {
     sprintf(topicBuf, "tele/%s/bme280", TOPIC);
     sprintf(buf, "{\"temperature\":");
-    dtostrf(currentSensorState.temp, 0, 2, buf + strlen(buf));
+    dtostrf(sensorState.temp, 0, 2, buf + strlen(buf));
     sprintf(buf + strlen(buf), ", \"pressure\":");
-    dtostrf(currentSensorState.pressure, 0, 1, buf + strlen(buf));
+    dtostrf(sensorState.pressure, 0, 1, buf + strlen(buf));
     sprintf(buf + strlen(buf), ", \"humidity\":");
-    dtostrf(currentSensorState.humidity, 0, 1, buf + strlen(buf));
+    dtostrf(sensorState.humidity, 0, 1, buf + strlen(buf));
     sprintf(buf + strlen(buf), "}");
     client->publish(topicBuf, buf);
   } else {
@@ -652,7 +394,7 @@ void setup() {
   // --- Sensors ---
   if (!bme.begin(0x76)) {
     Serial.println("Could not find BMP 280 sensor");
-    currentSensorState.tempSensor = false;
+    sensorState.tempSensor = false;
     controlState.mode = OFF;
   }
 
@@ -695,8 +437,8 @@ void connectedLoop(PubSubClient* client) {
     reportStatus(client);
   }
   //set in doControl, the outputs changed
-  if(outputDirty) {
-    outputDirty = false;
+  if(outputState.mqttOutputDirty) {
+    outputState.mqttOutputDirty = false;
     reportOutput(client);
   }
   if( (long)( millis() - nextStatus ) >= 0) {
@@ -732,7 +474,8 @@ void loop() {
   }
 
   if(stateDirty) {
-    doControl();
+    uint8_t toWrite = doControl(controlState, sensorState, outputState);
+    writeLow(toWrite);
     stateDirty = false;
   }
 
