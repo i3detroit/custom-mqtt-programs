@@ -356,6 +356,7 @@ void setup() {
 
   EEPROM.begin(8);
   if(EEPROM.read(0) != MAGIC_EEPROM_NUMBER) {
+    DEBUG_PRINTLN("eeprom magic number wrong; setting defaults");
 
       EEPROM.write(0, MAGIC_EEPROM_NUMBER);
       EEPROM.write(1, OFF);
@@ -366,6 +367,8 @@ void setup() {
         EEPROM.write(3+i, controlState.timeout.octets[i]);
       }
 
+  } else {
+    DEBUG_PRINTLN("eeprom magic number same; using");
   }
   resetState();
 
@@ -474,7 +477,7 @@ void loop() {
   }
 
   if(stateDirty) {
-    uint8_t toWrite = doControl(controlState, sensorState, outputState);
+    uint8_t toWrite = doControl(&controlState, &sensorState, &outputState);
     writeLow(toWrite);
     stateDirty = false;
   }

@@ -12,6 +12,6 @@ uint32_t millis() { return 42; }
 #include "thermostat.h"
 #include "pins.h"
 
-uint8_t doControl(struct ControlState controlState, struct SensorState sensorState, struct OutputState outputState);
+uint8_t doControl(struct ControlState* controlState, struct SensorState* sensorState, struct OutputState* outputState);
 
 #endif
