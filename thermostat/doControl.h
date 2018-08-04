@@ -1,7 +1,7 @@
 #ifndef __DOCONTROL_H_
 #define __DOCONTROL_H_
 
-#ifndef ESP8266
+#ifndef ARDUINO_ESP8266_WEMOS_D1MINI
 #include <stdint.h>
 #include <stdbool.h>
 uint32_t millis() { return 42; }
