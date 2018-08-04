@@ -399,6 +399,8 @@ void setup() {
     Serial.println("Could not find BMP 280 sensor");
     sensorState.tempSensor = false;
     controlState.mode = OFF;
+  } else {
+    sensorState.tempSensor = true;
   }
 
   mcp.begin();
