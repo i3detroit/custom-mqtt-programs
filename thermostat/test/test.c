@@ -4,8 +4,6 @@
 #include "../thermostat.h"
 #include "../doControl.h"
 
-uint32_t m3illis() { return 42; }
-
 // struct ControlState {
 //   enum Mode mode;
 //   bool fan;
@@ -27,14 +25,14 @@ uint32_t m3illis() { return 42; }
 //   bool mqttOutputDirty;
 // };
 void print(struct ControlState controlState, struct SensorState sensorState, struct OutputState outputState) {
-    printf("\tmode: %s\n\tfan: %d\n\ttarget: %d\n\ttimeout: %l\n",
+    printf("\tmode: %s\n\tfan: %s\n\ttarget: %d\n\ttimeout: %d\n",
             controlState.mode == OFF ? "off" : controlState.mode == HEAT ? "heat" : "cool",
             controlState.fan ? "on" : "off",
             controlState.target,
             controlState.timeout.timeout);
 
     printf("###Output State\n");
-    printf("\tmode: %s\n\tfan: %d\n",
+    printf("\tmode: %s\n\tfan: %s\n",
             outputState.mode == OFF ? "off" : outputState.mode == HEAT ? "heat" : "cool",
             outputState.fan ? "on" : "off");
 }
@@ -54,7 +52,7 @@ int main() {
     outputState.fanDelayEnd=0;
     outputState.fan = OFF;
     outputState.mqttOutputDirty = false;
-    uint8_t toWrite = doControl(controlState, sensorState, outputState);
+    uint8_t toWrite = doControl(&controlState, &sensorState, &outputState);
 
     return 0;
 
