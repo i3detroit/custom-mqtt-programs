@@ -41,7 +41,7 @@
 
 
 #if TRUE
-# ifdef ESP8266
+# ifdef !defined(ARDUINO_ESP8266_WEMOS_D1MINI) && !defined(ESP8266)
 #  define DEBUG_PRINT(x) Serial.print(x)
 #  define DEBUG_PRINTLN(x) Serial.println(x)
 # else

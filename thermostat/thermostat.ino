@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <errno.h>
+//#include <errno.h>
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <U8g2lib.h>
@@ -257,6 +257,7 @@ void reportInput(PubSubClient *client) {
 }
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
+  //TODO: run can take no arguments?
   if(length == 0) {
     reportStatus(client);
     return;
@@ -268,8 +269,8 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   //    swing: uint8_t
   //    TODO: add set timeout
   //    TODO: add run
+  payload[length] = '\0';
   if (strcmp(topic, "target") == 0) {
-    payload[length] = '\0';
     sprintf(topicBuf, "stat/%s/target", TOPIC);
     controlState.target = atoi((char*)payload);
     if(controlState.target < MIN_TEMP) {
@@ -283,7 +284,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     displayDirty = true;
     itoa(controlState.target, buf, 10);
     client->publish(topicBuf, buf);
-  } else if (strncmp(topic, "mode", strlen(topic)) == 0) {
+  } else if (strcmp(topic, "mode") == 0) {
     stateDirty = true;
     sprintf(topicBuf, "stat/%s/mode", TOPIC);
     if(strncmp((char*)payload, "heat", length-1) == 0) {
@@ -328,7 +329,6 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       client->publish(topicBuf, "bad fan command");
     }
   } else if (strcmp(topic, "swing") == 0) {
-    payload[length] = '\0';
     uint8_t newSwing = atoi((char*)payload);
     if(newSwing <= 3 && newSwing >= 0) {
       controlState.swing = newSwing;
@@ -343,24 +343,29 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     }
   } else if (strcmp(topic, "timeout") == 0) {
     char* endptr;
+    Serial.println("called timeout");
     uint32_t timeout = strtoul((char*)payload, &endptr, 10);
-    if(endptr == (char*)payload || *__errno()) {
-      //We didn't read anything or error
+    if(!timeout) {
+      //We didn't read anything// or error
       sprintf(topicBuf, "stat/%s/error", TOPIC);
       sprintf(buf, "timeout: bad value '%.*s'", length, (char*)payload);
       client->publish(topicBuf, buf);
     } else {
+      Serial.println("Good timeout value");
+      Serial.println(timeout);
       //Valid number from payload
       //timeoutInterval.timeout = timeout;
       //for(int i=0; i<4; ++i) {
       //  EEPROM.write(3+i, timeoutInterval.octets[i]);
       //}
-      //sprintf(topicBuf, "stat/%s/timeout", TOPIC);
-      sprintf(buf, "%l", timeout);
+      sprintf(topicBuf, "stat/%s/timeout", TOPIC);
+      sprintf(buf, "wrote value %l", timeout);
+      Serial.println(buf);
       client->publish(topicBuf, buf);
+      Serial.println("SOME PRINTED STRING to send thing?");
     }
   } else if (strcmp(topic, "run") == 0) {
-    nextTimeout = millis();
+    resetState();
     sprintf(topicBuf, "stat/%s/runReason", TOPIC);
     client->publish(topicBuf, "mqtt");
   } else {
