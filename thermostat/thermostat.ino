@@ -4,79 +4,27 @@
 #include <U8g2lib.h>
 #include <Wire.h>
 #include <Adafruit_BME280.h>
-#include <pcf8574_esp.h>
+#include "Adafruit_MCP23017.h"
 #include <mqtt-wrapper.h>
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
-#ifndef NAME
-#define NAME "NEW-thermostat"
-#endif
+#include "thermostat.h"
+#include "doControl.h"
+#include "i3Logo.h"
 
-#ifndef TOPIC
-#define TOPIC "i3/program-me/NEW-thermostat"
-#endif
+uint32_t nextStatus = 0UL;
+uint32_t statusInterval = 60000UL;
 
-#ifndef WIFI_SSID
-#define WIFI_SSID "i3detroit-wpa"
-#endif
+uint32_t nextRead = 0UL;
+uint32_t readInterval = 1000UL;
 
-#ifndef WIFI_PASSWORD
-#define WIFI_PASSWORD "i3detroit"
-#endif
+uint32_t nextTimeout = 0UL;
 
-#ifndef MQTT_SERVER
-#define MQTT_SERVER "10.13.0.22"
-#endif
+struct ControlState controlState;
+struct ControlState mqttControlState;
 
-#ifndef MQTT_PORT
-#define MQTT_PORT 1883
-#endif
+struct SensorState sensorState;
 
-#define DEBUG
-
-#ifdef DEBUG
-# define DEBUG_PRINT(x) Serial.print(x);
-# define DEBUG_PRINTLN(x) Serial.println(x);
-#else
-# define DEBUG_PRINT(x) do {} while (0)
-# define DEBUG_PRINTLN(x) do {} while (0)
-#endif
-
-//magic numbers stored in eeprom to set boot state
-#define EEPROM_OFF 0
-#define EEPROM_COOL 1
-#define EEPROM_HEAT 2
-
-//default temps to go to based on state
-#define DEFAULT_HEAT_TEMP 10
-#define DEFAULT_COOL_TEMP 25
-
-//limits for target temp; and will always heat below min temp
-#define MIN_TEMP 5
-#define MAX_TEMP 30
-
-#define FAN_CONTROL 5 //force on fan, 0 is on. If 1, is auto, furnace will tunr on fan
-#define ENABLE_CONTROL 6 //enable/disable heat/cool
-#define SELECT_CONTROL 7 //heat:0 cool: 1
-
-#define RESET 2
-
-#define FAN_ON 7
-#define FAN_AUTO 6
-#define LED_FAN_ON 4
-#define LED_FAN_AUTO 3
-
-#define TEMP_UP 0
-#define TEMP_DOWN 1
-
-#define HEAT 5
-#define LED_HEAT 2
-
-#define OFF 4
-#define LED_OFF 1
-
-#define COOL 3
-#define LED_COOL 0
+struct OutputState outputState;
 
 uint8_t button_state;
 int button_state_last[] = {1,1,1,1,1,1,1,1};
@@ -86,337 +34,296 @@ const int debounce_time = 50;
 char buf[1024];
 char topicBuf[1024];
 
-char pressureBuf[16];
-char humidityBuf[16];
-char tempBuf[16];
-
 struct mqtt_wrapper_options mqtt_options;
+enum ConnState connState;
 
-PCF857x i2cButtons(0x21, &Wire);
-PCF857x i2cLEDs(0x38, &Wire);
+Adafruit_MCP23017 mcp;
 
-unsigned long nextStatus = 0UL;
-unsigned long statusInterval = 60000UL;
 
-unsigned long nextRead = 0UL;
-unsigned long readInterval = 1000UL;
-
-unsigned long nextTimeout = 0UL;
-unsigned long timeoutInterval = 1000*3*60*60;
-
-U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R3, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ 5, /* data=*/ 4);
+U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R1, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ 5, /* data=*/ 4);
 Adafruit_BME280 bme;
 
-
 //swing temp how far above or below the target has to go to actually control
-uint8_t swing;
 
-float targetTemp;
-float currentTemp;
-bool fanForced;
-bool heat;
-bool cool;
-
-//Currently outputting
-bool enabled;
-bool heatCool;
-bool currentFanForced;
 
 bool displayDirty;
 bool stateDirty;
-bool mqttDirty;
-
-
-uint8_t change_bit(uint8_t val, uint8_t num, bool bitval) {
-  return (val & ~(1<<num)) | (bitval << num);
-}
+bool controlDirty;
 
 
 
 
 //Also used for init
 void resetState() {
-  swing = EEPROM.read(1);
-  byte value = EEPROM.read(0);
-  switch((int)value) {
-    case EEPROM_OFF:
-      targetTemp = DEFAULT_HEAT_TEMP;
-      heat = false;
-      cool = false;
+  Serial.println("reset");
+  controlState.swing = EEPROM.read(2);
+  byte mode = EEPROM.read(1);
+  Serial.println("start read timeout");
+  for(int i=0; i<4; ++i) {
+    controlState.timeout.octets[i] = EEPROM.read(3+i);
+  }
+
+  switch((int)mode) {
+#ifndef HEAT_ONLY
+    case COOL:
+      Serial.println("COOL");
+      controlState.target = DEFAULT_COOL_TEMP;
+      controlState.mode = COOL;
       break;
-    case EEPROM_COOL:
-      targetTemp = DEFAULT_COOL_TEMP;
-      heat = false;
-      cool = true;
+#endif
+    case HEAT:
+      Serial.println("HEAT");
+      controlState.target = DEFAULT_HEAT_TEMP;
+      controlState.mode = HEAT;
       break;
-    case EEPROM_HEAT:
-      targetTemp = DEFAULT_HEAT_TEMP;
-      heat = true;
-      cool = false;
+    case OFF:
+    default:
+      Serial.println("OFF");
+      controlState.target = DEFAULT_HEAT_TEMP;
+      controlState.mode = OFF;
       break;
   }
-  fanForced = false;
+  if(!sensorState.tempSensor) {
+    controlState.mode = OFF;
+  }
+  controlState.fan = false;
   displayDirty = true;
   stateDirty = true;
 }
 
-uint8_t setHeat(uint8_t toWrite) {
-  if(!enabled || heatCool == 1) {
-    mqttDirty = true;
-  }
-  enabled = true;
-  heatCool = 0;
-  toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
-  toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 1);//0 is heat but this is inverted
-    return toWrite;
-}
-
-uint8_t setCool(uint8_t toWrite) {
-  if(!enabled || heatCool == 0) {
-    mqttDirty = true;
-  }
-  enabled = true;
-  heatCool = 1;
-  toWrite = change_bit(toWrite, 7-ENABLE_CONTROL, 1);
-  toWrite = change_bit(toWrite, 7-SELECT_CONTROL, 0);//0 is heat but this is inverted
-  toWrite = change_bit(toWrite, 7-FAN_CONTROL, 1);
-  return toWrite;
-}
-uint8_t setOff(uint8_t toWrite) {
-  if(enabled) {
-    mqttDirty = true;
-  }
-  enabled = false;
-  return change_bit(toWrite, 7-ENABLE_CONTROL, 0);
-}
-
-void doControl() {
-  uint8_t toWrite = 0;
-
-  //status lights
-  toWrite = change_bit(toWrite, 7-LED_FAN_ON, fanForced);
-  toWrite = change_bit(toWrite, 7-LED_FAN_AUTO, !fanForced);
-  toWrite = change_bit(toWrite, 7-LED_HEAT, heat);
-  toWrite = change_bit(toWrite, 7-LED_COOL, cool);
-  toWrite = change_bit(toWrite, 7-LED_OFF, !heat && !cool);
-  //force fan on
-  toWrite = change_bit(toWrite, 7-FAN_CONTROL, fanForced);
-
-  // heating logic
-  /*
-   * if heat
-   *
-   *    if(current + swing < target)
-   *        below temp, heat
-   *        start heat
-   *    if(current - swing > target)
-   *        above
-   *        stop
-   *    if(current > target-swing && current < target+swing && enabled)
-   *        heating through swing
-   *        heat
-   *    if(current > target-swing && current < target+swing && !enabled)
-   *        //cooling through swing
-   *        stop
-   *    else
-   *        there is no else
-   *
-   *
-   */
-  if(currentTemp < MIN_TEMP) {
-    Serial.println("under min temp");
-    toWrite = setHeat(toWrite);
-  } else if(heat) {
-    if(currentTemp + swing <= targetTemp || (abs(currentTemp-targetTemp) < swing && enabled)) {
-      toWrite = setHeat(toWrite);
-    } else  if(currentTemp - swing >= targetTemp || (abs(currentTemp-targetTemp) && !enabled)) {
-      toWrite = setOff(toWrite);
-    } else {
-      Serial.println("HEAT ELSE WRONG");
-    }
-  } else if(cool) {
-    if(currentTemp - swing >= targetTemp || (abs(currentTemp-targetTemp) < swing && enabled)) {
-      toWrite = setCool(toWrite);
-    } else if(currentTemp + swing < targetTemp || (abs(currentTemp-targetTemp) < swing && enabled)) {
-      toWrite = setOff(toWrite);
-    } else {
-      Serial.println("COOL ELSE WRONG");
-    }
-  } else {
-    //off
-    toWrite = setOff(toWrite);
-  }
-
-  //write control
-  toWrite = ~toWrite; //I used 1 for on 0 for off but that's wrong.
-  // Serial.println(fanForced);
-  // Serial.println(heat);
-  // Serial.println(cool);
-  // Serial.println(toWrite, BIN);
-  // Serial.println("\n");
-  i2cLEDs.write8(toWrite);
-}
 
 void handleButton(int button) {
-  nextTimeout = millis() + timeoutInterval;
+  nextTimeout = millis() + controlState.timeout.timeout;
+
   stateDirty = true;
+  controlDirty = true;
+
   switch(button) {
-    case RESET:
+    case BTN_RESET:
       DEBUG_PRINTLN("button RESET");
       resetState();
       break;
-    case FAN_ON:
+    case BTN_FAN_ON:
       DEBUG_PRINTLN("button FAN_ON");
-      fanForced = true;
+      controlState.fan = true;
       break;
-    case FAN_AUTO:
+    case BTN_FAN_AUTO:
       DEBUG_PRINTLN("button FAN_AUTO");
-      fanForced = false;
+      controlState.fan = false;
       break;
     case TEMP_UP:
       DEBUG_PRINTLN("button TEMP_UP");
-      if(++targetTemp > MAX_TEMP) {
-        targetTemp = MAX_TEMP;
+      if(++(controlState.target) > MAX_TEMP) {
+        controlState.target = MAX_TEMP;
       }
       displayDirty = true;
       break;
     case TEMP_DOWN:
       DEBUG_PRINTLN("button TEMP_DOWN");
-      if(--targetTemp < MIN_TEMP) {
-        targetTemp = MIN_TEMP;
+      if(--(controlState.target) < MIN_TEMP) {
+        controlState.target = MIN_TEMP;
       }
       displayDirty = true;
       break;
-    case HEAT:
+    case BTN_HEAT:
       DEBUG_PRINTLN("button HEAT");
-      EEPROM.write(0, EEPROM_HEAT);
+      EEPROM.write(1, HEAT);
       EEPROM.commit();
-      heat = true;
-      cool = false;
+      controlState.mode = HEAT;
       break;
-    case OFF:
+    case BTN_OFF:
       DEBUG_PRINTLN("button OFF");
-      EEPROM.write(0, EEPROM_OFF);
+      EEPROM.write(1, OFF);
       EEPROM.commit();
-      heat = false;
-      cool = false;
+      controlState.mode = OFF;
       break;
-    case COOL:
+#ifndef HEAT_ONLY
+    case BTN_COOL:
       DEBUG_PRINTLN("button COOL");
-      EEPROM.write(0, EEPROM_COOL);
+      EEPROM.write(1, COOL);
       EEPROM.commit();
-      heat = false;
-      cool = true;
+      controlState.mode = COOL;
       break;
+#endif
   }
 }
 
 void display() {
-  itoa(currentTemp, buf, 10);
   u8g2.clearBuffer();
-  u8g2.drawStr(0, 50, buf);
-  itoa(targetTemp, buf, 10);
+  u8g2.setFont(u8g2_font_inr38_mf);
+  itoa(controlState.target, buf, 10);
   u8g2.drawStr(0, 116, buf);
+  if(sensorState.tempSensor) {
+    itoa(sensorState.temp, buf, 10);
+    u8g2.drawStr(0, 50, buf);
+  } else {
+    u8g2.setFont(u8g2_font_unifont_t_symbols);
+    u8g2.drawStr(0,30,"No BME");
+    u8g2.drawStr(0,50,"temp 10");
+  }
+  u8g2.setFont(u8g2_font_unifont_t_symbols);
+  switch(connState) {
+    case F_MQTT_CONNECTED:
+      u8g2.drawGlyph(55, 10, 0x25C6);	/* dec 9670/hex 25C6 some dot */
+      break;
+    case F_MQTT_DISCONNECTED:
+      u8g2.drawGlyph(55, 10, 0x25C8);	/* dec 9672/hex 25C8 some dot */
+      break;
+    case WIFI_DISCONNECTED:
+      u8g2.drawGlyph(55, 10, 0x25C7);	/* dec 9671/hex 25C7 some dot */
+      break;
+  }
   u8g2.sendBuffer();
 }
 
 void readTemp() {
-  currentTemp = bme.readTemperature();
-  dtostrf(bme.readTemperature(),0,2,tempBuf);
+  if(sensorState.tempSensor) {
+    //TODO: sensor delta detection
+    sensorState.temp = bme.readTemperature();
+    sensorState.pressure = bme.readPressure();
+    sensorState.humidity = bme.readHumidity();
+  } else {
+    sensorState.temp = 10;
+  }
+  //TODO: is this the correct thing? I think it makes it publish a lot
   displayDirty = true;
   stateDirty = true;
-
-  DEBUG_PRINT("read: ");
-  DEBUG_PRINTLN(currentTemp);
 }
 
-void reportState(PubSubClient *client) {
-  dtostrf(bme.readPressure(), 0, 2, pressureBuf);
-  dtostrf(bme.readHumidity(), 0, 1, humidityBuf);
-  sprintf(topicBuf, "tele/%s/bme280", TOPIC);
-  sprintf(buf, "{\"Temperature\":%s, \"Pressure\":%s, \"Humidity\":%s}", tempBuf, pressureBuf, humidityBuf);
-  client->publish(topicBuf, buf);
+void reportStatus(PubSubClient *client) {
+  if(controlState.mode != mqttControlState.mode) {
+    mqttControlState.mode = controlState.mode;
+    sprintf(topicBuf, "stat/%s/mode", TOPIC);
+    client->publish(topicBuf, mqttControlState.mode == OFF ? "off" : mqttControlState.mode == HEAT ? "heat" : "cool");
+  }
+  if(controlState.fan != mqttControlState.fan) {
+    mqttControlState.fan = controlState.fan;
+    sprintf(topicBuf, "stat/%s/fan", TOPIC);
+    client->publish(topicBuf, mqttControlState.fan ? "on" : "auto");
+  }
+  if(controlState.target != mqttControlState.target) {
+    mqttControlState.target = controlState.target;
+    sprintf(topicBuf, "stat/%s/target", TOPIC);
+    sprintf(buf, "%d", mqttControlState.target);
+    client->publish(topicBuf, buf);
+  }
+  if(controlState.swing != mqttControlState.swing) {
+    mqttControlState.swing = controlState.swing;
+    sprintf(topicBuf, "stat/%s/swing", TOPIC);
+    sprintf(buf, "%d", mqttControlState.swing);
+    client->publish(topicBuf, buf);
+  }
+  if(controlState.timeout.timeout != mqttControlState.timeout.timeout) {
+    mqttControlState.timeout.timeout = controlState.timeout.timeout;
+    sprintf(topicBuf, "stat/%s/timeout", TOPIC);
+    sprintf(buf, "%d", mqttControlState.timeout.timeout);
+    client->publish(topicBuf, buf);
+  }
+}
 
-  sprintf(topicBuf, "tele/%s/request", TOPIC);
-  sprintf(buf, "{\"TargetTemp\":");
-  itoa(targetTemp, buf + strlen(buf), 10);
-  sprintf(buf + strlen(buf), ", \"requested\":\"%s\", \"fan\":\"%s\"}", (!heat && !cool) ? "off" : heat ? "heat" : "cool", fanForced ? "on" : "auto");
-  client->publish(topicBuf, buf);
+void reportTelemetry(PubSubClient *client) {
+  if(sensorState.tempSensor) {
+    sprintf(topicBuf, "tele/%s/bme280", TOPIC);
+    sprintf(buf, "{\"temperature\":");
+    dtostrf(sensorState.temp, 0, 2, buf + strlen(buf));
+    sprintf(buf + strlen(buf), ", \"pressure\":");
+    dtostrf(sensorState.pressure, 0, 1, buf + strlen(buf));
+    sprintf(buf + strlen(buf), ", \"humidity\":");
+    dtostrf(sensorState.humidity, 0, 1, buf + strlen(buf));
+    sprintf(buf + strlen(buf), "}");
+    client->publish(topicBuf, buf);
+  } else {
+    sprintf(topicBuf, "tele/%s/error", TOPIC);
+    client->publish(topicBuf, "bme280 DISCONNECTED");
+  }
+}
 
+void reportOutput(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/output", TOPIC);
-  sprintf(buf, "{\"output\":\"%s\", \"fan\":\"%s\", \"swing\":%d}", !enabled ? "off" : heatCool ? "cool" : "heat", fanForced ? "on" : "auto", swing);
+  sprintf(buf, "{\"state\": \"%s\", \"fan\": \"%s\"}", outputState.mode == OFF ? "off" : outputState.mode == HEAT ? "heat" : "cool", outputState.fan ? "on" : "off");
   client->publish(topicBuf, buf);
 }
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
+  if(length == 0) {
+    reportStatus(client);
+    return;
+  }
   //Topics
   //    target temp
   //    mode: heat|cool|off
   //    fan: auto|on
   //    swing: uint8_t
-  if (length == 0) {
-    reportState(client);
-    return;
-  }
+  //    TODO: add set timeout
+  //    TODO: add run
   if (strcmp(topic, "target") == 0) {
     payload[length] = '\0';
-    targetTemp = atoi((char*)payload);
-    if(targetTemp < MIN_TEMP) {
-      targetTemp = MIN_TEMP;
+    sprintf(topicBuf, "stat/%s/target", TOPIC);
+    controlState.target = atoi((char*)payload);
+    if(controlState.target < MIN_TEMP) {
+      controlState.target = MIN_TEMP;
     }
-    if(targetTemp > MAX_TEMP) {
-      targetTemp = MAX_TEMP;
+    if(controlState.target > MAX_TEMP) {
+      controlState.target = MAX_TEMP;
     }
-    nextTimeout = millis() + timeoutInterval;
+    nextTimeout = millis() + controlState.timeout.timeout;
     stateDirty = true;
     displayDirty = true;
+    itoa(controlState.target, buf, 10);
+    client->publish(topicBuf, buf);
   } else if (strncmp(topic, "mode", length - 1) == 0) {
     stateDirty = true;
-    if(strncmp((char*)payload, "heat", 4) == 0) {
-      heat = true;
-      cool = false;
-      EEPROM.write(0, EEPROM_HEAT);
+    sprintf(topicBuf, "stat/%s/mode", TOPIC);
+    if(strncmp((char*)payload, "heat", length-1) == 0) {
+      controlState.mode = HEAT;
+      EEPROM.write(1, HEAT);
       EEPROM.commit();
-      nextTimeout = millis() + timeoutInterval;
-    } else if(strncmp((char*)payload, "cool", 4) == 0) {
-      heat = false;
-      cool = true;
-      EEPROM.write(0, EEPROM_COOL);
+      nextTimeout = millis() + controlState.timeout.timeout;
+      client->publish(topicBuf, "heat");
+    } else if(strncmp((char*)payload, "cool", length-1) == 0) {
+#ifndef HEAT_ONLY
+      controlState.mode = COOL;
+      EEPROM.write(1, COOL);
       EEPROM.commit();
-      nextTimeout = millis() + timeoutInterval;
-    } else if(strncmp((char*)payload, "off", 3) == 0) {
-      heat = false;
-      cool = false;
-      EEPROM.write(0, EEPROM_OFF);
+      nextTimeout = millis() + controlState.timeout.timeout;
+      client->publish(topicBuf, "cool");
+#else
+      client->publish(topicBuf, "cool not supported");
+#endif
+    } else if(strncmp((char*)payload, "off", length-1) == 0) {
+      controlState.mode = OFF;
+      EEPROM.write(1, OFF);
       EEPROM.commit();
-      nextTimeout = millis() + timeoutInterval;
+      nextTimeout = millis() + controlState.timeout.timeout;
+      client->publish(topicBuf, "off");
     } else {
-      sprintf(topicBuf, "stat/%s/mode", TOPIC);
       client->publish(topicBuf, "bad command");
     }
   } else if (strncmp(topic, "fan", length - 1) == 0) {
     stateDirty = true;
+    sprintf(topicBuf, "stat/%s/fan", TOPIC);
     if(strncmp((char*)payload, "auto", 4) == 0) {
-      fanForced = false;
-      nextTimeout = millis() + timeoutInterval;
+      controlState.fan = false;
+      nextTimeout = millis() + controlState.timeout.timeout;
+      client->publish(topicBuf, "auto");
     } else if(strncmp((char*)payload, "on", 2) == 0) {
-      fanForced = true;
-      nextTimeout = millis() + timeoutInterval;
+      controlState.fan = true;
+      nextTimeout = millis() + controlState.timeout.timeout;
+      client->publish(topicBuf, "on");
     } else {
-      sprintf(topicBuf, "stat/%s/fan", TOPIC);
       client->publish(topicBuf, "bad command");
     }
   } else if (strncmp(topic, "swing", length - 1) == 0) {
+    payload[length] = '\0';
     uint8_t newSwing = atoi((char*)payload);
+    sprintf(topicBuf, "stat/%s/swing", TOPIC);
     if(newSwing <= 3 && newSwing >= 0) {
-      swing = newSwing;
-      EEPROM.write(1, swing);
+      controlState.swing = newSwing;
+      EEPROM.write(2, controlState.swing);
       EEPROM.commit();
-      sprintf(topicBuf, "stat/%s/swing", TOPIC);
-      sprintf(buf, "%d", swing);
+      sprintf(buf, "%d", controlState.swing);
       client->publish(topicBuf, buf);
     } else {
-      sprintf(topicBuf, "stat/%s/what", TOPIC);
       client->publish(topicBuf, "new swing out of range 0-3");
     }
   } else {
@@ -425,34 +332,59 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   }
 }
 
+void connectionEvent(PubSubClient* client, enum ConnState state, int reason) {
+  connState = state;
+  //Skipping displayDirty because sometimes this is called with no looping
+  //like for wifi connect and then mqtt connect
+  display();
+}
+
 void connectSuccess(PubSubClient* client, char* ip) {
   //Are subscribed to cmnd/fullTopic/+
   // u8g2.clearBuffer();
   // u8g2.drawStr(0,10,ip);
   // u8g2.sendBuffer();
   readTemp();
-  reportState(client);
+  reportTelemetry(client);
+  reportStatus(client);
 }
 
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("Starting");
 
-  EEPROM.begin(2);
+  EEPROM.begin(8);
+  if(EEPROM.read(0) != MAGIC_EEPROM_NUMBER) {
+    DEBUG_PRINTLN("eeprom magic number wrong; setting defaults");
 
+      EEPROM.write(0, MAGIC_EEPROM_NUMBER);
+      EEPROM.write(1, OFF);
+      EEPROM.write(2, 1);//swing
+      controlState.timeout.timeout = DEFAULT_TIMEOUT_INTERVAL;
+      controlState.timeout.timeout = DEFAULT_TIMEOUT_INTERVAL;
+      for(int i=0; i<4; ++i) {
+        EEPROM.write(3+i, controlState.timeout.octets[i]);
+      }
+
+  } else {
+    DEBUG_PRINTLN("eeprom magic number same; using");
+  }
   resetState();
 
   // --- Display ---
   u8g2.begin();
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_inr38_mn);
-  u8g2.drawStr(0,10,"Hello World!");
+  u8g2.setFont(u8g2_font_inr38_mf);
+  u8g2.drawXBM( 0, 0, i3Logo_width, i3Logo_height, i3Logo_bits);
   u8g2.sendBuffer();
+  delay(500);
 
   // --- MQTT ---
   mqtt_options.connectedLoop = connectedLoop;
   mqtt_options.callback = callback;
   mqtt_options.connectSuccess = connectSuccess;
+  mqtt_options.connectionEvent = connectionEvent;
   mqtt_options.ssid = WIFI_SSID;
   mqtt_options.password = WIFI_PASSWORD;
   mqtt_options.mqtt_server = MQTT_SERVER;
@@ -465,22 +397,59 @@ void setup() {
   // --- Sensors ---
   if (!bme.begin(0x76)) {
     Serial.println("Could not find BMP 280 sensor");
-    while (1) {}
+    sensorState.tempSensor = false;
+    controlState.mode = OFF;
+  } else {
+    sensorState.tempSensor = true;
   }
 
-  i2cButtons.begin();
-  i2cLEDs.begin();
-  i2cLEDs.write8(0b00000101);
+  mcp.begin();
+
+  for(int i=0; i<8; ++i) {
+    mcp.pinMode(i, OUTPUT);
+  }
+  for(int i=8; i<16; ++i) {
+    mcp.pinMode(i, INPUT);
+    mcp.pullUp(i, HIGH);  // turn on a 100K pullup internally
+  }
+  writeLow(0b00000101);
   delay(100);
-  i2cLEDs.write8(0xFF);
+  writeLow(0xFF);
+}
+uint16_t writeHigh(uint8_t high) {
+  uint16_t a = mcp.readGPIOAB();
+  a = high << 8 | (a & 0x00FF);
+  mcp.writeGPIOAB(a);
+  return a;
+}
+uint16_t writeLow(uint8_t low) {
+  uint16_t a = mcp.readGPIOAB();
+  a = low | (a & 0xFF00);
+  mcp.writeGPIOAB(a);
+  return a;
+}
+uint8_t readHigh() {
+  return mcp.readGPIOAB() << 8;
+}
+uint8_t readLow() {
+  return mcp.readGPIOAB() & 0x00FF;
 }
 
 
 void connectedLoop(PubSubClient* client) {
-  if( (long)( millis() - nextStatus ) >= 0 || displayDirty || mqttDirty) {
-    mqttDirty = false;
+  if(controlDirty) {
+    controlDirty = false;
+    reportStatus(client);
+  }
+  //set in doControl, the outputs changed
+  if(outputState.mqttOutputDirty) {
+    outputState.mqttOutputDirty = false;
+    reportOutput(client);
+  }
+  if( (long)( millis() - nextStatus ) >= 0) {
     nextStatus = millis() + statusInterval;
-    reportState(client);
+    reportTelemetry(client);
+    reportOutput(client);
   }
 }
 
@@ -491,10 +460,17 @@ void loop() {
     nextRead = millis() + readInterval;
     readTemp();
   }
-  if( (long)( millis() - nextTimeout ) >= 0) {
-    nextTimeout = millis() + timeoutInterval;
+  if( controlState.timeout.timeout != 0 && (long)( millis() - nextTimeout ) >= 0) {
+    nextTimeout = millis() + controlState.timeout.timeout;
     resetState();
   }
+  if( outputState.fanDelayEnd != 0 && (long)( millis() - outputState.fanDelayEnd ) >= 0) {
+    outputState.fanDelayEnd = 0;
+    stateDirty = true;
+    //TODO: turn fan on
+  }
+
+
 
   //mqtt loop called before this
   if(displayDirty) {
@@ -503,18 +479,18 @@ void loop() {
   }
 
   if(stateDirty) {
-    doControl();
+    uint8_t toWrite = doControl(&controlState, &sensorState, &outputState);
+    writeLow(toWrite);
     stateDirty = false;
   }
 
-  button_state = i2cButtons.read8();
   for(int i=0; i < 8; ++i) {
-    if((button_state >> (7-i) & 0x01) != button_state_last[i] && millis() - debounce[i] > debounce_time) {
-      if((button_state >> (7-i) & 0x01) == LOW) {
+    button_state = mcp.digitalRead(i+8);
+    if(button_state != button_state_last[i] && millis() - debounce[i] > debounce_time) {
+      if(button_state == LOW) {
         handleButton(i);
       }
-      //If the button was pressed or released, we still need to reset the debounce timer.
-      button_state_last[i] =  button_state >> (7-i) & 0x01;
+      button_state_last[i] =  button_state;
       debounce[i] = millis();
     }
   }
