@@ -70,11 +70,8 @@
 #define BATTERY_SCALAR 13.00/811
 #define BATTERY_PIN A0
 
-unsigned long ledRefresh = 0UL;
-unsigned long ledRefreshInterval = 60000UL;
-
 unsigned long status = 0UL;
-unsigned long statusInterval = 10000UL;
+unsigned long statusInterval = 60000UL;
 
 char topicBuf[1024];
 char buf[1024];
@@ -235,10 +232,4 @@ void loop() {
   button_state[3] = mcp.digitalRead(button_pins[3]);//Read current state
   mcp.digitalWrite(button_state[3] ? GARAGE_RED : GARAGE_GREEN, HIGH);
   mcp.digitalWrite(!button_state[3] ? GARAGE_RED : GARAGE_GREEN, LOW);
-
-  if( (long)( millis() - ledRefresh ) >= 0) {
-    ledRefresh = millis() + ledRefreshInterval;
-    //TODO: This isn't needed, yeah?
-    //pcf8574.read8();
-  }
 }
