@@ -257,11 +257,6 @@ void reportInput(PubSubClient *client) {
 }
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
-  //TODO: run can take no arguments?
-  if(length == 0) {
-    reportStatus(client);
-    return;
-  }
   //Topics
   //    target temp
   //    mode: heat|cool|off
@@ -272,6 +267,11 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   payload[length] = '\0';
   if (strcmp(topic, "target") == 0) {
     sprintf(topicBuf, "stat/%s/target", TOPIC);
+    if(length == 0) {
+      itoa(controlState.target, buf, 10);
+      client->publish(topicBuf, buf);
+      return;
+    }
     controlState.target = atoi((char*)payload);
     if(controlState.target < MIN_TEMP) {
       controlState.target = MIN_TEMP;
@@ -287,6 +287,20 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   } else if (strcmp(topic, "mode") == 0) {
     stateDirty = true;
     sprintf(topicBuf, "stat/%s/mode", TOPIC);
+    if(length == 0) {
+      switch(controlState.mode) {
+        case HEAT:
+          client->publish(topicBuf, "HEAT");
+          break;
+        case COOL:
+          client->publish(topicBuf, "COOL");
+          break;
+        case OFF:
+          client->publish(topicBuf, "OFF");
+          break;
+      }
+      return;
+    }
     if(strncmp((char*)payload, "heat", length-1) == 0) {
       controlState.mode = HEAT;
       EEPROM.write(1, HEAT);
@@ -316,6 +330,19 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   } else if (strcmp(topic, "fan") == 0) {
     stateDirty = true;
     sprintf(topicBuf, "stat/%s/fan", TOPIC);
+    if(length == 0) {
+      if(controlState.fan) {
+        client->publish(topicBuf, "on");
+      } else {
+        client->publish(topicBuf, "auto");
+      }
+      return;
+    }
+    if(length == 0) {
+      itoa(controlState.target, buf, 10);
+      client->publish(topicBuf, buf);
+      return;
+    }
     if(strncmp((char*)payload, "auto", 4) == 0) {
       controlState.fan = false;
       nextTimeout = millis() + controlState.timeout.timeout;
@@ -329,6 +356,12 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       client->publish(topicBuf, "bad fan command");
     }
   } else if (strcmp(topic, "swing") == 0) {
+    if(length == 0) {
+      sprintf(buf, "%d", controlState.swing);
+      sprintf(topicBuf, "stat/%s/swing", TOPIC);
+      client->publish(topicBuf, buf);
+      return;
+    }
     uint8_t newSwing = atoi((char*)payload);
     if(newSwing <= 3 && newSwing >= 0) {
       controlState.swing = newSwing;
@@ -342,27 +375,31 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       client->publish(topicBuf, "new swing out of range 0-3");
     }
   } else if (strcmp(topic, "timeout") == 0) {
+    if(length == 0) {
+      sprintf(topicBuf, "stat/%s/timeout", TOPIC);
+      sprintf(buf, "%ld", controlState.timeout.timeout);
+      client->publish(topicBuf, buf);
+      return;
+    }
     char* endptr;
     Serial.println("called timeout");
     uint32_t timeout = strtoul((char*)payload, &endptr, 10);
-    if(!timeout) {
+    if(!timeout && payload[0] != '0') {
       //We didn't read anything// or error
       sprintf(topicBuf, "stat/%s/error", TOPIC);
       sprintf(buf, "timeout: bad value '%.*s'", length, (char*)payload);
       client->publish(topicBuf, buf);
     } else {
-      Serial.println("Good timeout value");
-      Serial.println(timeout);
+      //Serial.println("Good timeout value");
+      //Serial.println(timeout);
       //Valid number from payload
-      //timeoutInterval.timeout = timeout;
-      //for(int i=0; i<4; ++i) {
-      //  EEPROM.write(3+i, timeoutInterval.octets[i]);
-      //}
+      controlState.timeout.timeout = timeout;
+      for(int i=0; i<4; ++i) {
+        EEPROM.write(3+i, controlState.timeout.octets[i]);
+      }
       sprintf(topicBuf, "stat/%s/timeout", TOPIC);
-      sprintf(buf, "wrote value %l", timeout);
-      Serial.println(buf);
+      sprintf(buf, "%ld", timeout);
       client->publish(topicBuf, buf);
-      Serial.println("SOME PRINTED STRING to send thing?");
     }
   } else if (strcmp(topic, "run") == 0) {
     resetState();
@@ -503,6 +540,7 @@ void loop() {
   if( (long)( millis() - nextRead ) >= 0) {
     nextRead = millis() + readInterval;
     readTemp();
+    Serial.println(sensorState.temp);
   }
   if( controlState.timeout.timeout != 0 && (long)( millis() - nextTimeout ) >= 0) {
     nextTimeout = millis() + controlState.timeout.timeout;
