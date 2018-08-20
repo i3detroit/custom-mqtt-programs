@@ -195,29 +195,34 @@ void reportStatus(PubSubClient *client) {
     mqttControlState.mode = controlState.mode;
     sprintf(topicBuf, "stat/%s/mode", TOPIC);
     client->publish(topicBuf, mqttControlState.mode == OFF ? "off" : mqttControlState.mode == HEAT ? "heat" : "cool");
+    reportInput(client);
   }
   if(controlState.fan != mqttControlState.fan) {
     mqttControlState.fan = controlState.fan;
     sprintf(topicBuf, "stat/%s/fan", TOPIC);
     client->publish(topicBuf, mqttControlState.fan ? "on" : "auto");
+    reportInput(client);
   }
   if(controlState.target != mqttControlState.target) {
     mqttControlState.target = controlState.target;
     sprintf(topicBuf, "stat/%s/target", TOPIC);
     sprintf(buf, "%d", mqttControlState.target);
     client->publish(topicBuf, buf);
+    reportInput(client);
   }
   if(controlState.swing != mqttControlState.swing) {
     mqttControlState.swing = controlState.swing;
     sprintf(topicBuf, "stat/%s/swing", TOPIC);
     sprintf(buf, "%d", mqttControlState.swing);
     client->publish(topicBuf, buf);
+    reportInput(client);
   }
   if(controlState.timeout.timeout != mqttControlState.timeout.timeout) {
     mqttControlState.timeout.timeout = controlState.timeout.timeout;
     sprintf(topicBuf, "stat/%s/timeout", TOPIC);
     sprintf(buf, "%d", mqttControlState.timeout.timeout);
     client->publish(topicBuf, buf);
+    reportInput(client);
   }
 }
 
@@ -241,6 +246,12 @@ void reportTelemetry(PubSubClient *client) {
 void reportOutput(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/output", TOPIC);
   sprintf(buf, "{\"state\": \"%s\", \"fan\": \"%s\"}", outputState.mode == OFF ? "off" : outputState.mode == HEAT ? "heat" : "cool", outputState.fan ? "on" : "off");
+  client->publish(topicBuf, buf);
+}
+
+void reportInput(PubSubClient *client) {
+  sprintf(topicBuf, "tele/%s/input", TOPIC);
+  sprintf(buf, "{\"target\":%d, \"mode\":\"%s\", \"fan\":\"%s\", \"swing\":%d, \"timeout\":%d}", mqttControlState.target, mqttControlState.mode == OFF ? "off" : mqttControlState.mode == HEAT ? "heat" : "cool", mqttControlState.fan ? "on" : "auto", mqttControlState.swing, mqttControlState.timeout.timeout);
   client->publish(topicBuf, buf);
 }
 
@@ -347,6 +358,7 @@ void connectSuccess(PubSubClient* client, char* ip) {
   readTemp();
   reportTelemetry(client);
   reportStatus(client);
+  reportInput(client);
 }
 
 
@@ -450,6 +462,7 @@ void connectedLoop(PubSubClient* client) {
     nextStatus = millis() + statusInterval;
     reportTelemetry(client);
     reportOutput(client);
+    reportInput(client);
   }
 }
 
