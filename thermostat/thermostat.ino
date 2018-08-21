@@ -251,7 +251,7 @@ void reportOutput(PubSubClient *client) {
 
 void reportInput(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/input", TOPIC);
-  sprintf(buf, "{\"target\":%d, \"mode\":\"%s\", \"fan\":\"%s\", \"swing\":%d, \"timeout\":%d}", mqttControlState.target, mqttControlState.mode == OFF ? "off" : mqttControlState.mode == HEAT ? "heat" : "cool", mqttControlState.fan ? "on" : "auto", mqttControlState.swing, mqttControlState.timeout.timeout);
+  sprintf(buf, "{\"target\":%d, \"mode\":\"%s\", \"fan\":\"%s\", \"swing\":%d, \"timeout\":%d}", controlState.target, controlState.mode == OFF ? "off" : controlState.mode == HEAT ? "heat" : "cool", controlState.fan ? "on" : "auto", controlState.swing, controlState.timeout.timeout);
   client->publish(topicBuf, buf);
 }
 
