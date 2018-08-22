@@ -191,7 +191,7 @@ void readTemp() {
   stateDirty = true;
 }
 
-void reportStatus(PubSubClient *client) {
+void reportControlState(PubSubClient *client) {
   if(controlState.mode != mqttControlState.mode) {
     mqttControlState.mode = controlState.mode;
     sprintf(topicBuf, "stat/%s/mode", TOPIC);
@@ -326,6 +326,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     } else {
       sprintf(topicBuf, "stat/%s/error", TOPIC);
       client->publish(topicBuf, "bad mode command");
+      return;
     }
   } else if (strcmp(topic, "fan") == 0) {
     stateDirty = true;
@@ -389,6 +390,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       sprintf(topicBuf, "stat/%s/error", TOPIC);
       sprintf(buf, "timeout: bad value '%.*s'", length, (char*)payload);
       client->publish(topicBuf, buf);
+      return;
     } else {
       //Serial.println("Good timeout value");
       //Serial.println(timeout);
@@ -408,7 +410,10 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   } else {
     sprintf(topicBuf, "stat/%s/what", TOPIC);
     client->publish(topicBuf, "bad command");
+    return;
   }
+  //If we got here, it wasn't a failure
+  reportControlState(client);
 }
 
 void connectionEvent(PubSubClient* client, enum ConnState state, int reason) {
@@ -425,8 +430,7 @@ void connectSuccess(PubSubClient* client, char* ip) {
   // u8g2.sendBuffer();
   readTemp();
   reportTelemetry(client);
-  reportStatus(client);
-  reportInput(client);
+  reportControlState(client);
 }
 
 
@@ -519,7 +523,7 @@ uint8_t readLow() {
 void connectedLoop(PubSubClient* client) {
   if(controlDirty) {
     controlDirty = false;
-    reportStatus(client);
+    reportControlState(client);
   }
   //set in doControl, the outputs changed
   if(outputState.mqttOutputDirty) {
@@ -540,19 +544,11 @@ void loop() {
   if( (long)( millis() - nextRead ) >= 0) {
     nextRead = millis() + readInterval;
     readTemp();
-    Serial.println(sensorState.temp);
   }
   if( controlState.timeout.timeout != 0 && (long)( millis() - nextTimeout ) >= 0) {
     nextTimeout = millis() + controlState.timeout.timeout;
     resetState();
   }
-  if( outputState.fanDelayEnd != 0 && (long)( millis() - outputState.fanDelayEnd ) >= 0) {
-    outputState.fanDelayEnd = 0;
-    stateDirty = true;
-    //TODO: turn fan on
-  }
-
-
 
   //mqtt loop called before this
   if(displayDirty) {
