@@ -201,7 +201,7 @@ void readTemp() {
   stateDirty = true;
 }
 
-void reportControlState(PubSubClient *client) {
+void reportControlState(PubSubClient *client, bool force) {
   bool change = false;
   if(controlState.mode != mqttControlState.mode) {
     change = true;
@@ -236,7 +236,7 @@ void reportControlState(PubSubClient *client) {
     sprintf(buf, "%d", mqttControlState.timeout.timeout);
     client->publish(topicBuf, buf);
   }
-  if(change) {
+  if(change || force) {
     sprintf(topicBuf, "tele/%s/input", TOPIC);
     sprintf(buf, "{\"target\":%d, \"mode\":\"%s\", \"fan\":\"%s\", \"swing\":%d, \"timeout\":%d}", controlState.target, controlState.mode == OFF ? "off" : controlState.mode == HEAT ? "heat" : "cool", controlState.fan ? "on" : "auto", controlState.swing, controlState.timeout.timeout);
     client->publish(topicBuf, buf);
@@ -411,7 +411,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   }
   //If we got here, it wasn't a failure
   nextTimeout = millis() + controlState.timeout.timeout;
-  reportControlState(client);
+  reportControlState(client, false);
 }
 
 void connectionEvent(PubSubClient* client, enum ConnState state, int reason) {
@@ -428,7 +428,7 @@ void connectSuccess(PubSubClient* client, char* ip) {
   // u8g2.sendBuffer();
   readTemp();
   reportTelemetry(client);
-  reportControlState(client);
+  reportControlState(client, false);
 }
 
 void resetEEPROM() {
@@ -521,7 +521,7 @@ uint8_t readLow() {
 void connectedLoop(PubSubClient* client) {
   if(controlDirty) {
     controlDirty = false;
-    reportControlState(client);
+    reportControlState(client, false);
   }
   //set in doControl, the outputs changed
   if(outputState.mqttOutputDirty) {
@@ -533,7 +533,7 @@ void connectedLoop(PubSubClient* client) {
     mqttDirty = false;
     reportTelemetry(client);
     reportOutput(client);
-    reportControlState(client);
+    reportControlState(client, true);
   }
 }
 

@@ -37,7 +37,7 @@
 //#define HEAT_ONLY
 #endif
 
-#define DEFAULT_TIMEOUT_INTERVAL 3 * 60 * 60 * 1000 + 42
+#define DEFAULT_TIMEOUT_INTERVAL 3 * 60 * 60 * 1000
 
 
 #if TRUE
