@@ -264,6 +264,14 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   //    swing: uint8_t
   //    TODO: add set timeout
   //    TODO: add run
+
+  /**
+   * Ideas for how this function operates
+   * Return on stats/bad command
+   * At end of function, report new state to MQTT
+   * At end of function, increase timeout
+   **/
+  //This helps if we try to parse it as a number. Or strcmp
   payload[length] = '\0';
   if (strcmp(topic, "target") == 0) {
     sprintf(topicBuf, "stat/%s/target", TOPIC);
@@ -279,7 +287,6 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     if(controlState.target > MAX_TEMP) {
       controlState.target = MAX_TEMP;
     }
-    nextTimeout = millis() + controlState.timeout.timeout;
     stateDirty = true;
     displayDirty = true;
     itoa(controlState.target, buf, 10);
@@ -301,28 +308,22 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       }
       return;
     }
-    if(strncmp((char*)payload, "heat", length-1) == 0) {
+    if(strcmp((char*)payload, "heat") == 0) {
       controlState.mode = HEAT;
       EEPROM.write(1, HEAT);
       EEPROM.commit();
-      nextTimeout = millis() + controlState.timeout.timeout;
-      client->publish(topicBuf, "heat");
-    } else if(strncmp((char*)payload, "cool", length-1) == 0) {
+    } else if(strcmp((char*)payload, "cool") == 0) {
 #ifndef HEAT_ONLY
       controlState.mode = COOL;
       EEPROM.write(1, COOL);
       EEPROM.commit();
-      nextTimeout = millis() + controlState.timeout.timeout;
-      client->publish(topicBuf, "cool");
 #else
       client->publish(topicBuf, "cool not supported");
 #endif
-    } else if(strncmp((char*)payload, "off", length-1) == 0) {
+    } else if(strcmp((char*)payload, "off") == 0) {
       controlState.mode = OFF;
       EEPROM.write(1, OFF);
       EEPROM.commit();
-      nextTimeout = millis() + controlState.timeout.timeout;
-      client->publish(topicBuf, "off");
     } else {
       sprintf(topicBuf, "stat/%s/error", TOPIC);
       client->publish(topicBuf, "bad mode command");
@@ -339,19 +340,10 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       }
       return;
     }
-    if(length == 0) {
-      itoa(controlState.target, buf, 10);
-      client->publish(topicBuf, buf);
-      return;
-    }
     if(strncmp((char*)payload, "auto", 4) == 0) {
       controlState.fan = false;
-      nextTimeout = millis() + controlState.timeout.timeout;
-      client->publish(topicBuf, "auto");
     } else if(strncmp((char*)payload, "on", 2) == 0) {
       controlState.fan = true;
-      nextTimeout = millis() + controlState.timeout.timeout;
-      client->publish(topicBuf, "on");
     } else {
       sprintf(topicBuf, "stat/%s/error", TOPIC);
       client->publish(topicBuf, "bad fan command");
@@ -364,16 +356,14 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       return;
     }
     uint8_t newSwing = atoi((char*)payload);
-    if(newSwing <= 3 && newSwing >= 0) {
+    if(newSwing <= 3 && newSwing >= 1) {
       controlState.swing = newSwing;
       EEPROM.write(2, controlState.swing);
       EEPROM.commit();
       sprintf(buf, "%d", controlState.swing);
-      sprintf(topicBuf, "stat/%s/swing", TOPIC);
-      client->publish(topicBuf, buf);
     } else {
       sprintf(topicBuf, "stat/%s/error", TOPIC);
-      client->publish(topicBuf, "new swing out of range 0-3");
+      client->publish(topicBuf, "new swing out of range 1-3");
     }
   } else if (strcmp(topic, "timeout") == 0) {
     if(length == 0) {
@@ -399,9 +389,6 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       for(int i=0; i<4; ++i) {
         EEPROM.write(3+i, controlState.timeout.octets[i]);
       }
-      sprintf(topicBuf, "stat/%s/timeout", TOPIC);
-      sprintf(buf, "%ld", timeout);
-      client->publish(topicBuf, buf);
     }
   } else if (strcmp(topic, "run") == 0) {
     resetState();
@@ -413,6 +400,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     return;
   }
   //If we got here, it wasn't a failure
+  nextTimeout = millis() + controlState.timeout.timeout;
   reportControlState(client);
 }
 
