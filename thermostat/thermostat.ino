@@ -28,8 +28,8 @@ struct SensorState sensorState;
 struct OutputState outputState;
 
 uint8_t button_state;
-int button_state_last[] = {1,1,1,1,1,1,1,1};
-int debounce[] = {0,0,0,0,0,0,0,0};
+int button_state_last[] = {1,1,1,1,1,1,1,1,-1};
+int debounce[] = {0,0,0,0,0,0,0,0,0};
 const int debounce_time = 50;
 
 char buf[1024];
@@ -50,6 +50,7 @@ Adafruit_BME280 bme;
 bool displayDirty;
 bool stateDirty;
 bool controlDirty;
+bool mqttDirty;
 
 
 
@@ -169,6 +170,9 @@ void display() {
     u8g2.drawStr(0,50,"temp 10");
   }
   u8g2.setFont(u8g2_font_unifont_t_symbols);
+  if(sensorState.batteryPower) {
+    u8g2.drawGlyph(5, 10, 0x260E);
+  }
   switch(connState) {
     case F_MQTT_CONNECTED:
       u8g2.drawGlyph(55, 10, 0x25C6);	/* dec 9670/hex 25C6 some dot */
@@ -254,7 +258,7 @@ void reportTelemetry(PubSubClient *client) {
     dtostrf(sensorState.pressure, 0, 1, buf + strlen(buf));
     sprintf(buf + strlen(buf), ", \"humidity\":");
     dtostrf(sensorState.humidity, 0, 1, buf + strlen(buf));
-    sprintf(buf + strlen(buf), "}");
+    sprintf(buf + strlen(buf), ", \"powerState\": \"%s\"}", sensorState.batteryPower ? "battery" : "mains");
     client->publish(topicBuf, buf);
   } else {
     sprintf(topicBuf, "tele/%s/error", TOPIC);
@@ -455,6 +459,9 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Starting");
 
+  pinMode(MAINS_TEST_PIN, INPUT);
+  sensorState.batteryPower = 0;
+
   EEPROM.begin(8);
   resetState();
 
@@ -532,8 +539,9 @@ void connectedLoop(PubSubClient* client) {
     outputState.mqttOutputDirty = false;
     reportOutput(client);
   }
-  if( (long)( millis() - nextStatus ) >= 0) {
+  if(mqttDirty || (long)( millis() - nextStatus ) >= 0) {
     nextStatus = millis() + statusInterval;
+    mqttDirty = false;
     reportTelemetry(client);
     reportOutput(client);
     reportInput(client);
@@ -573,5 +581,16 @@ void loop() {
       button_state_last[i] =  button_state;
       debounce[i] = millis();
     }
+  }
+
+  button_state = digitalRead(MAINS_TEST_PIN);
+  if(button_state != button_state_last[8] && millis() - debounce[8] > debounce_time) {
+    button_state_last[8] =  button_state;
+    debounce[8] = millis();
+    sensorState.batteryPower = !button_state;
+    Serial.print("batteryPower ");
+    Serial.println(sensorState.batteryPower);
+    displayDirty = true;
+    mqttDirty = true;
   }
 }

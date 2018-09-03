@@ -1,4 +1,6 @@
 
+#define MAINS_TEST_PIN 13
+
 #define FAN_CONTROL 5 //force on fan, 0 is on. If 1, is auto, furnace will tunr on fan
 #define ENABLE_CONTROL 6 //enable/disable heat/cool
 #define SELECT_CONTROL 7 //heat:0 cool: 1
