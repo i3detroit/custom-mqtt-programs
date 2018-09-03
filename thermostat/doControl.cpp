@@ -1,6 +1,6 @@
 #include "doControl.h"
 
-#define FAN_DELAY 3*1000
+#define FAN_DELAY 30*1000
 
 uint8_t change_bit(uint8_t val, uint8_t num, bool bitval) {
   return (val & ~(1<<num)) | (bitval << num);
