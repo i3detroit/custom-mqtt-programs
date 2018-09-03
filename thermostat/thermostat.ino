@@ -208,14 +208,12 @@ void reportControlState(PubSubClient *client) {
     mqttControlState.mode = controlState.mode;
     sprintf(topicBuf, "stat/%s/mode", TOPIC);
     client->publish(topicBuf, mqttControlState.mode == OFF ? "off" : mqttControlState.mode == HEAT ? "heat" : "cool");
-    reportInput(client);
   }
   if(controlState.fan != mqttControlState.fan) {
     change = true;
     mqttControlState.fan = controlState.fan;
     sprintf(topicBuf, "stat/%s/fan", TOPIC);
     client->publish(topicBuf, mqttControlState.fan ? "on" : "auto");
-    reportInput(client);
   }
   if(controlState.target != mqttControlState.target) {
     change = true;
@@ -223,7 +221,6 @@ void reportControlState(PubSubClient *client) {
     sprintf(topicBuf, "stat/%s/target", TOPIC);
     sprintf(buf, "%d", mqttControlState.target);
     client->publish(topicBuf, buf);
-    reportInput(client);
   }
   if(controlState.swing != mqttControlState.swing) {
     change = true;
@@ -231,7 +228,6 @@ void reportControlState(PubSubClient *client) {
     sprintf(topicBuf, "stat/%s/swing", TOPIC);
     sprintf(buf, "%d", mqttControlState.swing);
     client->publish(topicBuf, buf);
-    reportInput(client);
   }
   if(controlState.timeout.timeout != mqttControlState.timeout.timeout) {
     change = true;
@@ -239,7 +235,6 @@ void reportControlState(PubSubClient *client) {
     sprintf(topicBuf, "stat/%s/timeout", TOPIC);
     sprintf(buf, "%d", mqttControlState.timeout.timeout);
     client->publish(topicBuf, buf);
-    reportInput(client);
   }
   if(change) {
     sprintf(topicBuf, "tele/%s/input", TOPIC);
@@ -250,31 +245,25 @@ void reportControlState(PubSubClient *client) {
 
 
 void reportTelemetry(PubSubClient *client) {
+  sprintf(topicBuf, "tele/%s/sensors", TOPIC);
+  sprintf(buf, "{\"powerState\": \"%s\"", sensorState.batteryPower ? "battery" : "mains");
   if(sensorState.tempSensor) {
-    sprintf(topicBuf, "tele/%s/bme280", TOPIC);
-    sprintf(buf, "{\"temperature\":");
+    sprintf(buf + strlen(buf), ", \"temperature\":");
     dtostrf(sensorState.temp, 0, 2, buf + strlen(buf));
     sprintf(buf + strlen(buf), ", \"pressure\":");
     dtostrf(sensorState.pressure, 0, 1, buf + strlen(buf));
     sprintf(buf + strlen(buf), ", \"humidity\":");
     dtostrf(sensorState.humidity, 0, 1, buf + strlen(buf));
-    sprintf(buf + strlen(buf), ", \"powerState\": \"%s\"}", sensorState.batteryPower ? "battery" : "mains");
-    client->publish(topicBuf, buf);
   } else {
-    sprintf(topicBuf, "tele/%s/error", TOPIC);
-    client->publish(topicBuf, "bme280 DISCONNECTED");
+    sprintf(buf + strlen(buf), ", \"temperature\": \"no sensor\", \"pressure\": \"no sensor\", \"humidity\": \"no sensor\"");
   }
+  sprintf(buf + strlen(buf), "}");
+  client->publish(topicBuf, buf);
 }
 
 void reportOutput(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/output", TOPIC);
   sprintf(buf, "{\"state\": \"%s\", \"fan\": \"%s\"}", outputState.mode == OFF ? "off" : outputState.mode == HEAT ? "heat" : "cool", outputState.fan ? "on" : "off");
-  client->publish(topicBuf, buf);
-}
-
-void reportInput(PubSubClient *client) {
-  sprintf(topicBuf, "tele/%s/input", TOPIC);
-  sprintf(buf, "{\"target\":%d, \"mode\":\"%s\", \"fan\":\"%s\", \"swing\":%d, \"timeout\":%d}", controlState.target, controlState.mode == OFF ? "off" : controlState.mode == HEAT ? "heat" : "cool", controlState.fan ? "on" : "auto", controlState.swing, controlState.timeout.timeout);
   client->publish(topicBuf, buf);
 }
 
@@ -544,7 +533,7 @@ void connectedLoop(PubSubClient* client) {
     mqttDirty = false;
     reportTelemetry(client);
     reportOutput(client);
-    reportInput(client);
+    reportControlState(client);
   }
 }
 
