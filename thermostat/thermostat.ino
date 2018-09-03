@@ -246,7 +246,7 @@ void reportControlState(PubSubClient *client) {
 
 void reportTelemetry(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/sensors", TOPIC);
-  sprintf(buf, "{\"powerState\": \"%s\"", sensorState.batteryPower ? "battery" : "mains");
+  sprintf(buf, "{\"powerSource\": \"%s\"", sensorState.batteryPower ? "battery" : "mains");
   if(sensorState.tempSensor) {
     sprintf(buf + strlen(buf), ", \"temperature\":");
     dtostrf(sensorState.temp, 0, 2, buf + strlen(buf));
