@@ -58,6 +58,12 @@ bool controlDirty;
 void resetState() {
   Serial.println("reset");
   controlState.swing = EEPROM.read(2);
+  if(EEPROM.read(0) != MAGIC_EEPROM_NUMBER || controlState.swing == 0) {
+    resetEEPROM();
+    controlState.swing = EEPROM.read(2);
+  } else {
+    DEBUG_PRINTLN("eeprom magic number same; using");
+  }
   byte mode = EEPROM.read(1);
   Serial.println("start read timeout");
   for(int i=0; i<4; ++i) {
@@ -192,19 +198,23 @@ void readTemp() {
 }
 
 void reportControlState(PubSubClient *client) {
+  bool change = false;
   if(controlState.mode != mqttControlState.mode) {
+    change = true;
     mqttControlState.mode = controlState.mode;
     sprintf(topicBuf, "stat/%s/mode", TOPIC);
     client->publish(topicBuf, mqttControlState.mode == OFF ? "off" : mqttControlState.mode == HEAT ? "heat" : "cool");
     reportInput(client);
   }
   if(controlState.fan != mqttControlState.fan) {
+    change = true;
     mqttControlState.fan = controlState.fan;
     sprintf(topicBuf, "stat/%s/fan", TOPIC);
     client->publish(topicBuf, mqttControlState.fan ? "on" : "auto");
     reportInput(client);
   }
   if(controlState.target != mqttControlState.target) {
+    change = true;
     mqttControlState.target = controlState.target;
     sprintf(topicBuf, "stat/%s/target", TOPIC);
     sprintf(buf, "%d", mqttControlState.target);
@@ -212,6 +222,7 @@ void reportControlState(PubSubClient *client) {
     reportInput(client);
   }
   if(controlState.swing != mqttControlState.swing) {
+    change = true;
     mqttControlState.swing = controlState.swing;
     sprintf(topicBuf, "stat/%s/swing", TOPIC);
     sprintf(buf, "%d", mqttControlState.swing);
@@ -219,13 +230,20 @@ void reportControlState(PubSubClient *client) {
     reportInput(client);
   }
   if(controlState.timeout.timeout != mqttControlState.timeout.timeout) {
+    change = true;
     mqttControlState.timeout.timeout = controlState.timeout.timeout;
     sprintf(topicBuf, "stat/%s/timeout", TOPIC);
     sprintf(buf, "%d", mqttControlState.timeout.timeout);
     client->publish(topicBuf, buf);
     reportInput(client);
   }
+  if(change) {
+    sprintf(topicBuf, "tele/%s/input", TOPIC);
+    sprintf(buf, "{\"target\":%d, \"mode\":\"%s\", \"fan\":\"%s\", \"swing\":%d, \"timeout\":%d}", controlState.target, controlState.mode == OFF ? "off" : controlState.mode == HEAT ? "heat" : "cool", controlState.fan ? "on" : "auto", controlState.swing, controlState.timeout.timeout);
+    client->publish(topicBuf, buf);
+  }
 }
+
 
 void reportTelemetry(PubSubClient *client) {
   if(sensorState.tempSensor) {
@@ -289,8 +307,6 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     }
     stateDirty = true;
     displayDirty = true;
-    itoa(controlState.target, buf, 10);
-    client->publish(topicBuf, buf);
   } else if (strcmp(topic, "mode") == 0) {
     stateDirty = true;
     sprintf(topicBuf, "stat/%s/mode", TOPIC);
@@ -340,13 +356,14 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       }
       return;
     }
-    if(strncmp((char*)payload, "auto", 4) == 0) {
+    if(strcmp((char*)payload, "auto") == 0) {
       controlState.fan = false;
     } else if(strncmp((char*)payload, "on", 2) == 0) {
       controlState.fan = true;
     } else {
       sprintf(topicBuf, "stat/%s/error", TOPIC);
       client->publish(topicBuf, "bad fan command");
+      return;
     }
   } else if (strcmp(topic, "swing") == 0) {
     if(length == 0) {
@@ -375,13 +392,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     char* endptr;
     Serial.println("called timeout");
     uint32_t timeout = strtoul((char*)payload, &endptr, 10);
-    if(!timeout && payload[0] != '0') {
-      //We didn't read anything// or error
-      sprintf(topicBuf, "stat/%s/error", TOPIC);
-      sprintf(buf, "timeout: bad value '%.*s'", length, (char*)payload);
-      client->publish(topicBuf, buf);
-      return;
-    } else {
+    if(timeout && payload[0] != '0' && (timeout == 0 || (MIN_TIMEOUT < timeout && timeout < MAX_TIMEOUT))) {
       //Serial.println("Good timeout value");
       //Serial.println(timeout);
       //Valid number from payload
@@ -389,6 +400,12 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       for(int i=0; i<4; ++i) {
         EEPROM.write(3+i, controlState.timeout.octets[i]);
       }
+    } else {
+      //We didn't read anything// or error
+      sprintf(topicBuf, "stat/%s/error", TOPIC);
+      sprintf(buf, "timeout: bad value '%.*s'", length, (char*)payload);
+      client->publish(topicBuf, buf);
+      return;
     }
   } else if (strcmp(topic, "run") == 0) {
     resetState();
@@ -421,27 +438,24 @@ void connectSuccess(PubSubClient* client, char* ip) {
   reportControlState(client);
 }
 
+void resetEEPROM() {
+  DEBUG_PRINTLN("eeprom wrong; setting defaults");
+
+  EEPROM.write(0, MAGIC_EEPROM_NUMBER);
+  EEPROM.write(1, OFF);
+  EEPROM.write(2, 1);//swing
+  controlState.timeout.timeout = DEFAULT_TIMEOUT_INTERVAL;
+  for(int i=0; i<4; ++i) {
+    EEPROM.write(3+i, controlState.timeout.octets[i]);
+  }
+
+}
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting");
 
   EEPROM.begin(8);
-  if(EEPROM.read(0) != MAGIC_EEPROM_NUMBER) {
-    DEBUG_PRINTLN("eeprom magic number wrong; setting defaults");
-
-      EEPROM.write(0, MAGIC_EEPROM_NUMBER);
-      EEPROM.write(1, OFF);
-      EEPROM.write(2, 1);//swing
-      controlState.timeout.timeout = DEFAULT_TIMEOUT_INTERVAL;
-      controlState.timeout.timeout = DEFAULT_TIMEOUT_INTERVAL;
-      for(int i=0; i<4; ++i) {
-        EEPROM.write(3+i, controlState.timeout.octets[i]);
-      }
-
-  } else {
-    DEBUG_PRINTLN("eeprom magic number same; using");
-  }
   resetState();
 
   // --- Display ---

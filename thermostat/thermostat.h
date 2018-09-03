@@ -37,7 +37,7 @@
 //#define HEAT_ONLY
 #endif
 
-#define DEFAULT_TIMEOUT_INTERVAL 3 * 60 * 60 * 1000UL
+#define DEFAULT_TIMEOUT_INTERVAL 3 * 60 * 60 * 1000 + 42
 
 
 #if TRUE
@@ -55,7 +55,7 @@
 #endif
 
 //magic numbers stored in eeprom to set boot state
-#define MAGIC_EEPROM_NUMBER 0x44
+#define MAGIC_EEPROM_NUMBER 0x45
 
 //default temps to go to based on state
 #define DEFAULT_HEAT_TEMP 10
@@ -63,7 +63,11 @@
 
 //limits for target temp; and will always heat below min temp
 #define MIN_TEMP 5
-#define MAX_TEMP 42
+#define MAX_TEMP 30
+
+#define MIN_TIMEOUT 60*1000
+//Like a day
+#define MAX_TIMEOUT 100000000
 
 union TimeoutInterval {
     uint32_t timeout;
