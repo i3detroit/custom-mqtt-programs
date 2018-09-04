@@ -37,8 +37,6 @@
 //#define HEAT_ONLY
 #endif
 
-#define DEFAULT_TIMEOUT_INTERVAL 3 * 60 * 60 * 1000
-
 
 #if TRUE
 # ifdef !defined(ARDUINO_ESP8266_WEMOS_D1MINI) && !defined(ESP8266)
@@ -54,8 +52,23 @@
 # define DEBUG_PRINTLN(x) do {} while (0)
 #endif
 
+
+/*################################ EEPROM Section ##########################*/
+#define EEPROM_MAGIC 0
+#define EEPROM_MODE 1
+#define EEPROM_SWING 2
+#define EEPROM_TIMEOUT 3
+
+#define EEPROM_SIZE 8
+
 //magic numbers stored in eeprom to set boot state
-#define MAGIC_EEPROM_NUMBER 0x45
+#define MAGIC_EEPROM_NUMBER 0x48
+
+/*################## parameter limits and defaults #########################*/
+#define MIN_TIMEOUT 60*1000
+//Like a day
+#define MAX_TIMEOUT 100000000
+#define DEFAULT_TIMEOUT_INTERVAL 3 * 60 * 60 * 1000
 
 //default temps to go to based on state
 #define DEFAULT_HEAT_TEMP 10
@@ -65,10 +78,7 @@
 #define MIN_TEMP 5
 #define MAX_TEMP 30
 
-#define MIN_TIMEOUT 60*1000
-//Like a day
-#define MAX_TIMEOUT 100000000
-
+/*####################### state structures #################################*/
 union TimeoutInterval {
     uint32_t timeout;
     uint8_t octets[4];

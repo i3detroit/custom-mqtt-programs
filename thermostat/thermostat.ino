@@ -53,22 +53,34 @@ bool controlDirty;
 bool mqttDirty;
 
 
+bool isValidEEPROM() {
+  return EEPROM.read(EEPROM_MAGIC) == MAGIC_EEPROM_NUMBER && EEPROM.read(EEPROM_SWING) != 0;
+}
 
+void saveTimeoutToEEPROM() {
+  DEBUG_PRINTLN("SAVING TIMEOUT");
+  for(int i=0; i<4; ++i) {
+    EEPROM.write(EEPROM_TIMEOUT+i, controlState.timeout.octets[i]);
+  }
+}
 
 //Also used for init
 void resetState() {
-  Serial.println("reset");
-  controlState.swing = EEPROM.read(2);
-  if(EEPROM.read(0) != MAGIC_EEPROM_NUMBER || controlState.swing == 0) {
+  DEBUG_PRINTLN("reset");
+  if(!isValidEEPROM()) {
     resetEEPROM();
-    controlState.swing = EEPROM.read(2);
-  } else {
-    DEBUG_PRINTLN("eeprom magic number same; using");
+    if(!isValidEEPROM()) {
+      //panic
+      Serial.println("EEPROM broken?");
+      while(true) ;
+    }
   }
-  byte mode = EEPROM.read(1);
-  Serial.println("start read timeout");
+
+  controlState.swing = EEPROM.read(2);
+  byte mode = EEPROM.read(EEPROM_MODE);
+  controlState.swing = EEPROM.read(EEPROM_SWING);
   for(int i=0; i<4; ++i) {
-    controlState.timeout.octets[i] = EEPROM.read(3+i);
+    controlState.timeout.octets[i] = EEPROM.read(EEPROM_TIMEOUT+i);
   }
 
   switch((int)mode) {
@@ -135,20 +147,20 @@ void handleButton(int button) {
       break;
     case BTN_HEAT:
       DEBUG_PRINTLN("button HEAT");
-      EEPROM.write(1, HEAT);
+      EEPROM.write(EEPROM_MODE, HEAT);
       EEPROM.commit();
       controlState.mode = HEAT;
       break;
     case BTN_OFF:
       DEBUG_PRINTLN("button OFF");
-      EEPROM.write(1, OFF);
+      EEPROM.write(EEPROM_MODE, OFF);
       EEPROM.commit();
       controlState.mode = OFF;
       break;
 #ifndef HEAT_ONLY
     case BTN_COOL:
       DEBUG_PRINTLN("button COOL");
-      EEPROM.write(1, COOL);
+      EEPROM.write(EEPROM_MODE, COOL);
       EEPROM.commit();
       controlState.mode = COOL;
       break;
@@ -319,19 +331,19 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     }
     if(strcmp((char*)payload, "heat") == 0) {
       controlState.mode = HEAT;
-      EEPROM.write(1, HEAT);
+      EEPROM.write(EEPROM_MODE, HEAT);
       EEPROM.commit();
     } else if(strcmp((char*)payload, "cool") == 0) {
 #ifndef HEAT_ONLY
       controlState.mode = COOL;
-      EEPROM.write(1, COOL);
+      EEPROM.write(EEPROM_MODE, COOL);
       EEPROM.commit();
 #else
       client->publish(topicBuf, "cool not supported");
 #endif
     } else if(strcmp((char*)payload, "off") == 0) {
       controlState.mode = OFF;
-      EEPROM.write(1, OFF);
+      EEPROM.write(EEPROM_MODE, OFF);
       EEPROM.commit();
     } else {
       sprintf(topicBuf, "stat/%s/error", TOPIC);
@@ -368,7 +380,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     uint8_t newSwing = atoi((char*)payload);
     if(newSwing <= 3 && newSwing >= 1) {
       controlState.swing = newSwing;
-      EEPROM.write(2, controlState.swing);
+      EEPROM.write(EEPROM_SWING, controlState.swing);
       EEPROM.commit();
       sprintf(buf, "%d", controlState.swing);
     } else {
@@ -390,9 +402,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       //Serial.println(timeout);
       //Valid number from payload
       controlState.timeout.timeout = timeout;
-      for(int i=0; i<4; ++i) {
-        EEPROM.write(3+i, controlState.timeout.octets[i]);
-      }
+      saveTimeoutToEEPROM();
     } else {
       //We didn't read anything// or error
       sprintf(topicBuf, "stat/%s/error", TOPIC);
@@ -431,17 +441,34 @@ void connectSuccess(PubSubClient* client, char* ip) {
   reportControlState(client, false);
 }
 
+
+void printEEPROM() {
+  Serial.print("magic byte: ");
+  Serial.println(EEPROM.read(EEPROM_MAGIC), HEX);
+  Serial.print("mode: ");
+  Serial.println(EEPROM.read(EEPROM_MODE));
+  Serial.print("swing: ");
+  Serial.println(EEPROM.read(EEPROM_SWING));
+
+  union TimeoutInterval timeout;
+  for(int i=0; i<4; ++i) {
+    timeout.octets[i] = EEPROM.read(EEPROM_TIMEOUT+i);
+  }
+  Serial.print("timeout: ");
+  Serial.println(timeout.timeout);
+}
+
 void resetEEPROM() {
+  for(int i=0; i<EEPROM_SIZE; ++i) {
+    EEPROM.write(i, 0);
+  }
   DEBUG_PRINTLN("eeprom wrong; setting defaults");
 
-  EEPROM.write(0, MAGIC_EEPROM_NUMBER);
-  EEPROM.write(1, OFF);
-  EEPROM.write(2, 1);//swing
+  EEPROM.write(EEPROM_MAGIC, MAGIC_EEPROM_NUMBER);
+  EEPROM.write(EEPROM_MODE, OFF);
+  EEPROM.write(EEPROM_SWING, 1);
   controlState.timeout.timeout = DEFAULT_TIMEOUT_INTERVAL;
-  for(int i=0; i<4; ++i) {
-    EEPROM.write(3+i, controlState.timeout.octets[i]);
-  }
-
+  saveTimeoutToEEPROM();
 }
 
 void setup() {
@@ -451,7 +478,7 @@ void setup() {
   pinMode(MAINS_TEST_PIN, INPUT);
   sensorState.batteryPower = 0;
 
-  EEPROM.begin(8);
+  EEPROM.begin(EEPROM_SIZE);
   resetState();
 
   // --- Display ---
