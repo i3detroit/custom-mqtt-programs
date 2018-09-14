@@ -94,7 +94,7 @@ void connectedLoop(PubSubClient* client) {
     button_state[i] = digitalRead(button_pins[i]);
     if (button_state[i] != button_state_last[i] && millis() - debounce[i] > debounce_time) {
       //If motion
-      if (button_state[i] == LOW) {
+      if (button_state[i] == HIGH) {
         lastMotion = millis();
         if(millis() - lastPublish > durationBetweenPublishes) {
           sprintf(topicBuf, "stat/%s/motion", TOPIC);
