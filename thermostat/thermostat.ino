@@ -285,8 +285,9 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   //    mode: heat|cool|off
   //    fan: auto|on
   //    swing: uint8_t
-  //    TODO: add set timeout
-  //    TODO: add run
+  //    add set timeout
+  //    add run
+  //    query
 
   /**
    * Ideas for how this function operates
@@ -414,6 +415,10 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     resetState();
     sprintf(topicBuf, "stat/%s/runReason", TOPIC);
     client->publish(topicBuf, "mqtt");
+  } else if (strcmp(topic, "query") == 0) {
+    reportTelemetry(client);
+    reportOutput(client);
+    reportControlState(client, true);
   } else {
     sprintf(topicBuf, "stat/%s/what", TOPIC);
     client->publish(topicBuf, "bad command");
