@@ -80,7 +80,7 @@ void connectedLoop(PubSubClient* client) {
       if(i == 0) {
         client->publish("stat/i3/inside/laser-zone/bumblebee/vent-fan-gate", button_state[i] ? "closed" : "open");
       } else if(i == 1) {
-        client->publish("stat/i3/inside/laser-zone/wolverine/vent-fan-gate", button_state[i] ? "closed" : "open ");
+        client->publish("stat/i3/inside/laser-zone/wolverine/vent-fan-gate", button_state[i] ? "closed" : "open");
       }
       //If the button was pressed or released, we still need to reset the debounce timer.
       button_state_last[i] = button_state[i];
