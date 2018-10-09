@@ -32,20 +32,21 @@
 #define DEVICE "new"
 #endif
 
-// pins                 // label on wemos D1 mini
-#define OPENBUTTON  5   // D1
-#define CLOSEBUTTON 4   // D2
-#define GATEOPEN    0   // D3
-#define GATECLOSE   2   // D4
-#define GATESENSOR  16  // D0
-#define OPENLED     14  // D5
-#define CLOSEDLED   12  // D6
+// input pins           // label on wemos D1 mini
+#define OPENBUTTON  5   // D1 - Momentary push button
+#define CLOSEBUTTON 4   // D2 - Momentary push button
+#define GATESENSOR  16  // D0 - Limit switch on gate
+
+//output pins
+#define GATEOPEN    0   // D3 - Trigger actuator open
+#define GATECLOSE   2   // D4 - Trigger actuator closed
+#define OPENLED     14  // D5 - Button LED
+#define CLOSEDLED   12  // D6 - Button LED
 
 struct mqtt_wrapper_options mqtt_options;
 
 char buf[1024];
 
-// switch pins 4 is bumblebee, 5 is wolverine
 const int button_pins[] = {OPENBUTTON, CLOSEBUTTON, GATESENSOR};
 const int numButtons = sizeof(button_pins)/sizeof(button_pins[0]);
 
@@ -55,15 +56,11 @@ int button_state_last[] = {-1,-1,-1};
 int debounce[] = {0,0,0};
 const int debounce_time = 80;
 
-enum states {Open = 0, Closed = 1, Error = 2}
-enum states requested_state;
-enum states requested_state_last;
-requested_state = Open;
-requested_state_last = Open;
-enum states actual_state;
-enum states actual_state_last;
-actual_state = Open;
-actual_state_last = Open;
+enum states{Open, Closed, Error};
+states requested_state = Open;
+states requested_state_last = Open;
+states actual_state = Open;
+states actual_state_last = Open;
 
 void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
   if (strcmp((char*)payload, "open") == 0) {
@@ -98,10 +95,10 @@ void setup() {
     pinMode(button_pins[i], INPUT_PULLUP);
   }
   //output pins
-  pinmode(GATEOPEN, OUTPUT);
-  pinmode(GATECLOSE, OUTPUT);
-  pinmode(OPENLED, OUTPUT);
-  pinmode(CLOSEDLED, OUTPUT);
+  pinMode(GATEOPEN, OUTPUT);
+  pinMode(GATECLOSE, OUTPUT);
+  pinMode(OPENLED, OUTPUT);
+  pinMode(CLOSEDLED, OUTPUT);
 }
 
 void connectedLoop(PubSubClient* client) {
@@ -110,7 +107,7 @@ void connectedLoop(PubSubClient* client) {
     button_state[i] = digitalRead(button_pins[i]);//Read current state
   }
   // Check for error state (open & closed both pressed)
-  if (button_state[0] == HIGH && button_state[1] == HIGH) {
+  if (button_state[0] == LOW && button_state[1] == LOW) {
     requested_state = Error;
   } else {
     // Check if the inputs have changed
@@ -118,9 +115,9 @@ void connectedLoop(PubSubClient* client) {
       // If the current state does not equal the last state, AND it's been long enough since the last change
       if (button_state[i] != button_state_last[i] && millis() - debounce[i] > debounce_time) {
         // Check the physical buttons
-        if(i == 0 && button_state[i] == HIGH) {
+        if(i == 0 && button_state[i] == LOW) {
           requested_state = Open;
-        } else if(i == 1 && button_state[i] == HIGH) {
+        } else if(i == 1 && button_state[i] == LOW) {
           requested_state = Closed;
         // Check the open/closed sensor
         } else if(i == 2) {
