@@ -213,7 +213,7 @@ void readTemp() {
   stateDirty = true;
 }
 
-void reportControlState(PubSubClient *client, bool force) {
+void reportControlState(MQTTClient *client, bool force) {
   bool change = false;
   if(controlState.mode != mqttControlState.mode) {
     change = true;
@@ -256,7 +256,7 @@ void reportControlState(PubSubClient *client, bool force) {
 }
 
 
-void reportTelemetry(PubSubClient *client) {
+void reportTelemetry(MQTTClient *client) {
   sprintf(topicBuf, "tele/%s/sensors", TOPIC);
   sprintf(buf, "{\"powerSource\": \"%s\"", sensorState.batteryPower ? "battery" : "mains");
   if(sensorState.tempSensor) {
@@ -273,13 +273,13 @@ void reportTelemetry(PubSubClient *client) {
   client->publish(topicBuf, buf);
 }
 
-void reportOutput(PubSubClient *client) {
+void reportOutput(MQTTClient *client) {
   sprintf(topicBuf, "tele/%s/output", TOPIC);
   sprintf(buf, "{\"state\": \"%s\", \"fan\": \"%s\"}", outputState.mode == OFF ? "off" : outputState.mode == HEAT ? "heat" : "cool", outputState.fan ? "on" : "off");
   client->publish(topicBuf, buf);
 }
 
-void callback(char* topic, byte* payload, unsigned int length, PubSubClient *client) {
+void callback(char* topic, byte* payload, unsigned int length, MQTTClient *client) {
   //Topics
   //    target temp
   //    mode: heat|cool|off
@@ -429,14 +429,14 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
   reportControlState(client, false);
 }
 
-void connectionEvent(PubSubClient* client, enum ConnState state, int reason) {
+void connectionEvent(MQTTClient* client, enum ConnState state, int reason) {
   connState = state;
   //Skipping displayDirty because sometimes this is called with no looping
   //like for wifi connect and then mqtt connect
   display();
 }
 
-void connectSuccess(PubSubClient* client, char* ip) {
+void connectSuccess(MQTTClient* client, char* ip) {
   //Are subscribed to cmnd/fullTopic/+
   // u8g2.clearBuffer();
   // u8g2.drawStr(0,10,ip);
@@ -550,7 +550,7 @@ uint8_t readLow() {
 }
 
 
-void connectedLoop(PubSubClient* client) {
+void connectedLoop(MQTTClient* client) {
   if(controlDirty) {
     controlDirty = false;
     reportControlState(client, false);

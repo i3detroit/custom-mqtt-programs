@@ -1,6 +1,9 @@
 #include "doControl.h"
-
-#define FAN_DELAY 30*1000
+#ifndef TESTING
+	#include <Arduino.h>
+#else
+	#include "test/fixtures/MillisFixture.h"
+#endif
 
 uint8_t change_bit(uint8_t val, uint8_t num, bool bitval) {
   return (val & ~(1<<num)) | (bitval << num);
@@ -140,7 +143,12 @@ uint8_t doControl(struct ControlState* controlState, struct SensorState* sensorS
     //TODO: error to mqtt
   }
 
-  uint8_t fanControl = ((0x01 & outputState->fan == true) << 3) | ((0x01 & outputState->mode != OFF) << 2) | ((0x01 & controlState->fan) << 1) | (0x01 & (int32_t)(millis() - outputState->fanDelayEnd) >= 0);
+  //Got it.  During setHeat(), outputState->fanDelayEnd gets reset to (millis() + FAN_DELAY_END).  That means my tests will always wind up with FANDELAY_LONG_ENOUGH = false (I can't set up any combination of the fan delay and millis to compensate.
+  //Proposed solution: find some way to mock, intercept, or override millis() so it returns a rolling number.
+  uint8_t fanControl = ((0x01 & outputState->fan == true) << 3) |
+		  ((0x01 & outputState->mode != OFF) << 2) |
+		  ((0x01 & controlState->fan) << 1) |
+		  (0x01 & (int32_t)(millis() - outputState->fanDelayEnd) >= 0);
   //DEBUG_PRINTLN("FAN");
   //DEBUG_PRINTLN(outputState->fan);
   //DEBUG_PRINTLN(outputState->mode != OFF);

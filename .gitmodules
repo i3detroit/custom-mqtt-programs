@@ -1,0 +1,3 @@
+[submodule "thermostat/test/googleTest"]
+	path = thermostat/test/googleTest
+	url = https://github.com/google/googleTest

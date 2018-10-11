@@ -17,11 +17,11 @@
 #endif
 
 #ifndef WIFI_SSID
-#define WIFI_SSID "i3detroit-wpa"
+#define WIFI_SSID "wandering_node42"
 #endif
 
 #ifndef WIFI_PASSWORD
-#define WIFI_PASSWORD "i3detroit"
+#define WIFI_PASSWORD "hunter.2"
 #endif
 
 #ifndef MQTT_SERVER
