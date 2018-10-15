@@ -37,9 +37,11 @@
 #define CLOSEBUTTON  13 // D7 - Momentary push button
 #define GATESENSOR    4 // D2 - Limit switch on gate
 
-//output pins
-#define GATEOPEN      0 // D3 - Trigger actuator open
-#define GATECLOSE     2 // D4 - Trigger actuator closed
+// output pins
+// Dual relays to invert polarity on the actuator
+// A==B==HIGH is open, A==B==LOW is closed, A!=B is unpowered
+#define RELAYA        0 // D3 - Actuator trigger relay
+#define RELAYB        2 // D4 - Actuator trigger relay
 #define OPENLED      14 // D5 - Button LED
 #define CLOSEDLED    15 // D8 - Button LED
 
@@ -67,6 +69,8 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     requested_state = Open;
   } else if (strcmp((char*)payload, "close") == 0) {
     requested_state = Closed;
+  } else if (strcmp((char*)payload, "off") == 0) {
+    requested_state = Off;
   } else if (strcmp((char*)payload, "query") == 0) {
     client->publish("stat/i3/inside/laser-zone/"DEVICE"/blast-gate", button_state_last[2] ? "closed" : "open");
   } else {
@@ -78,7 +82,7 @@ void connectSuccess(PubSubClient* client, char* ip) {
 }
 
 void setup() {
-	Serial.begin(115200);
+  Serial.begin(115200);
   mqtt_options.connectedLoop = connectedLoop;
   mqtt_options.callback = callback;
   mqtt_options.connectSuccess = connectSuccess;
@@ -96,8 +100,8 @@ void setup() {
     pinMode(button_pins[i], INPUT_PULLUP);
   }
   //output pins
-  pinMode(GATEOPEN, OUTPUT);
-  pinMode(GATECLOSE, OUTPUT);
+  pinMode(RELAYA, OUTPUT);
+  pinMode(RELAYB, OUTPUT);
   pinMode(OPENLED, OUTPUT);
   pinMode(CLOSEDLED, OUTPUT);
   Serial.println("Setup");
@@ -127,8 +131,8 @@ void connectedLoop(PubSubClient* client) {
         // Check the open/closed sensor
         } else if(i == 2) {
           if(button_state[i] == LOW) {
-          	Serial.println("Limit pressed");
-          	requested_state = Off;
+            Serial.println("Limit pressed");
+            requested_state = Off;
             actual_state = Open;
           } else {
             actual_state = Closed;
@@ -140,29 +144,28 @@ void connectedLoop(PubSubClient* client) {
       }
     }
   }
-  // Set the outputs if something has changed
+  // Set the relay outputs if requested state has changed
   if (requested_state != requested_state_last) {
     requested_state_last = requested_state;
     if (requested_state == Open) {
-      digitalWrite(GATECLOSE, HIGH);
-      digitalWrite(GATEOPEN, HIGH);
+      digitalWrite(RELAYA, HIGH);
+      digitalWrite(RELAYB, HIGH);
       client->publish("stat/i3/inside/laser-zone/"DEVICE"/blast-gate", "opening");
       Serial.println("Pub opening");
     } else if (requested_state == Closed) {
-      digitalWrite(OPENLED, LOW);
-      digitalWrite(CLOSEDLED, HIGH);
-      digitalWrite(GATEOPEN, LOW);
-      digitalWrite(GATECLOSE, LOW);
+      digitalWrite(RELAYA, LOW);
+      digitalWrite(RELAYB, LOW);
       client->publish("stat/i3/inside/laser-zone/"DEVICE"/blast-gate", "closing");
       Serial.println("Pub closing");
     } else if (requested_state == Off) {
-      digitalWrite(GATEOPEN, LOW);
-      digitalWrite(GATECLOSE, HIGH);
+      digitalWrite(RELAYA, LOW);
+      digitalWrite(RELAYB, HIGH);
     } else if (requested_state == Error) {
       client->publish("stat/i3/inside/laser-zone/"DEVICE"/blast-gate", "error");
       Serial.println("Pub error");
     }
   }
+  // Set the LEDs if state has changed
   if (actual_state != actual_state_last) {
     actual_state_last = actual_state;
     if (actual_state == Open) {
