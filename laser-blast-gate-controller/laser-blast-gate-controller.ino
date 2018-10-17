@@ -147,7 +147,7 @@ void connectedLoop(PubSubClient* client) {
   // Set the relay outputs if requested state has changed
   if (requested_state != requested_state_last) {
     requested_state_last = requested_state;
-    if (requested_state == Open) {
+    if (requested_state == Open && actual_state != Open) {
       digitalWrite(RELAYA, HIGH);
       digitalWrite(RELAYB, HIGH);
       client->publish("stat/i3/inside/laser-zone/"DEVICE"/blast-gate", "opening");
