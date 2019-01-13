@@ -4,6 +4,8 @@
 #include "mqtt-wrapper.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 #ifndef WIFI_SSID
 #define WIFI_SSID "i3detroit-wpa"
@@ -49,6 +51,27 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
 
   sprintf(buf, "stat/%s/status", TOPIC);
   if (strcmp(topic, "display") == 0) {
+
+  	if(length > 83) {
+  		//too long
+  		length = 83;
+  	}
+
+  	if(strncmp((char*)payload, "^S",2) != 0 &&
+  		strncmp((char*)payload, "^I",2) != 0) {
+  		//No control characters at start
+  		for(int i=MIN(length,81); i>=0; ++i) {
+  			payload[i+2] = payload[i];
+  		}
+  		payload[0] = '^';
+  		payload[1] = 'S';
+  		length += 2;
+  	}
+
+  	if(length > 83) {
+  		//too long
+  		length = 83;
+  	}
 
     for(int i = 0; i < ARRAY_SIZE(reset_packet); i++) {
       Serial.write(reset_packet[i]);
@@ -107,7 +130,7 @@ void setup() {
   mqtt_options.mqtt_port = MQTT_PORT;
   mqtt_options.host_name = NAME;
   mqtt_options.fullTopic = TOPIC;
-  mqtt_options.debug_print = true;
+  mqtt_options.debug_print = false;
   setup_mqtt(&mqtt_options);
 }
 
