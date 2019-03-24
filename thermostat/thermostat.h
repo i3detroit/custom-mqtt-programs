@@ -39,17 +39,17 @@
 
 
 #if TRUE
-# ifdef !defined(ARDUINO_ESP8266_WEMOS_D1MINI) && !defined(ESP8266)
-#  define DEBUG_PRINT(x) Serial.print(x)
-#  define DEBUG_PRINTLN(x) Serial.println(x)
-# else
-#  include <stdio.h>
-#  define DEBUG_PRINT(x) printf(x)
-#  define DEBUG_PRINTLN(x) printf(x); printf("\n")
-# endif
+#ifdef !defined(ARDUINO_ESP8266_WEMOS_D1MINI) && !defined(ESP8266)
+#define DEBUG_PRINT(x) Serial.print(x)
+#define DEBUG_PRINTLN(x) Serial.println(x)
 #else
-# define DEBUG_PRINT(x) do {} while (0)
-# define DEBUG_PRINTLN(x) do {} while (0)
+#include <stdio.h>
+#define DEBUG_PRINT(x) printf(x)
+#define DEBUG_PRINTLN(x) printf(x); printf("\n")
+#endif
+#else
+#define DEBUG_PRINT(x) do {} while (0)
+#define DEBUG_PRINTLN(x) do {} while (0)
 #endif
 
 
@@ -62,7 +62,7 @@
 #define EEPROM_SIZE 8
 
 //magic numbers stored in eeprom to set boot state
-#define MAGIC_EEPROM_NUMBER 0x48
+#define MAGIC_EEPROM_NUMBER 0x49
 
 /*################## parameter limits and defaults #########################*/
 #define MIN_TIMEOUT 60*1000

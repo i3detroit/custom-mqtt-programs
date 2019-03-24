@@ -66,7 +66,7 @@ void saveTimeoutToEEPROM() {
 
 //Also used for init
 void resetState() {
-  DEBUG_PRINTLN("reset");
+  Serial.println("reset");
   if(!isValidEEPROM()) {
     resetEEPROM();
     if(!isValidEEPROM()) {
@@ -76,8 +76,8 @@ void resetState() {
     }
   }
 
-  controlState.swing = EEPROM.read(2);
   byte mode = EEPROM.read(EEPROM_MODE);
+
   controlState.swing = EEPROM.read(EEPROM_SWING);
   for(int i=0; i<4; ++i) {
     controlState.timeout.octets[i] = EEPROM.read(EEPROM_TIMEOUT+i);
@@ -86,24 +86,25 @@ void resetState() {
   switch((int)mode) {
 #ifndef HEAT_ONLY
     case COOL:
-      Serial.println("COOL");
+      Serial.println("COOL from eeprom");
       controlState.target = DEFAULT_COOL_TEMP;
       controlState.mode = COOL;
       break;
 #endif
     case HEAT:
-      Serial.println("HEAT");
+      Serial.println("HEAT from eeprom");
       controlState.target = DEFAULT_HEAT_TEMP;
       controlState.mode = HEAT;
       break;
     case OFF:
     default:
-      Serial.println("OFF");
+      Serial.println("OFF from eeprom");
       controlState.target = DEFAULT_HEAT_TEMP;
       controlState.mode = OFF;
       break;
   }
   if(!sensorState.tempSensor) {
+    Serial.println("OFF cause no temp sensor");
     controlState.mode = OFF;
   }
   controlState.fan = false;
@@ -117,6 +118,7 @@ void handleButton(int button) {
 
   stateDirty = true;
   controlDirty = true;
+  displayDirty = true;
 
   switch(button) {
     case BTN_RESET:
@@ -171,9 +173,15 @@ void handleButton(int button) {
 void display() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_inr38_mf);
-  itoa(controlState.target, buf, 10);
-  u8g2.drawStr(0, 116, buf);
-  if(sensorState.tempSensor) {
+
+  // display target temp
+  if (controlState.mode != OFF) {
+    itoa(controlState.target, buf, 10);
+    u8g2.drawStr(0, 116, buf);
+  }
+
+  //display current temp
+  if (sensorState.tempSensor) {
     itoa(sensorState.temp, buf, 10);
     u8g2.drawStr(0, 50, buf);
   } else {
@@ -181,19 +189,25 @@ void display() {
     u8g2.drawStr(0,30,"No BME");
     u8g2.drawStr(0,50,"temp 10");
   }
-  u8g2.setFont(u8g2_font_unifont_t_symbols);
   if(sensorState.batteryPower) {
-    u8g2.drawGlyph(5, 10, 0x260E);
+    // https://github.com/olikraus/u8g2/wiki/fntgrpu8g#battery19
+    u8g2.setFont(u8g2_font_battery19_tn);
+    u8g2.setFontDirection(3); //down to up
+    u8g2.drawGlyph(20, 10, 0x0033);
+    u8g2.setFontDirection(0); //left to right
   }
+  u8g2.setFont(u8g2_font_unifont_t_symbols);
+  // https://github.com/olikraus/u8g2/wiki/fntgrpunifont
+  // bottom of page
   switch(connState) {
     case F_MQTT_CONNECTED:
-      u8g2.drawGlyph(55, 10, 0x25C6);	/* dec 9670/hex 25C6 some dot */
+      u8g2.drawGlyph(55, 10, 0x25C6);	/* dec 9670/hex 25C6 solid diamond */
       break;
     case F_MQTT_DISCONNECTED:
-      u8g2.drawGlyph(55, 10, 0x25C8);	/* dec 9672/hex 25C8 some dot */
+      u8g2.drawGlyph(55, 10, 0x25C8);	/* dec 9672/hex 25C8 dot inside diamond */
       break;
     case WIFI_DISCONNECTED:
-      u8g2.drawGlyph(55, 10, 0x25C7);	/* dec 9671/hex 25C7 some dot */
+      u8g2.drawGlyph(55, 10, 0x25C7);	/* dec 9671/hex 25C7 empty diamond */
       break;
   }
   u8g2.sendBuffer();
@@ -448,7 +462,7 @@ void connectSuccess(PubSubClient* client, char* ip) {
 
 
 void printEEPROM() {
-  Serial.print("magic byte: ");
+  Serial.print("magic byte: 0x");
   Serial.println(EEPROM.read(EEPROM_MAGIC), HEX);
   Serial.print("mode: ");
   Serial.println(EEPROM.read(EEPROM_MODE));
@@ -464,10 +478,10 @@ void printEEPROM() {
 }
 
 void resetEEPROM() {
+  Serial.println("eeprom wrong; setting defaults");
   for(int i=0; i<EEPROM_SIZE; ++i) {
     EEPROM.write(i, 0);
   }
-  DEBUG_PRINTLN("eeprom wrong; setting defaults");
 
   EEPROM.write(EEPROM_MAGIC, MAGIC_EEPROM_NUMBER);
   EEPROM.write(EEPROM_MODE, OFF);
@@ -480,7 +494,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Starting");
 
-  pinMode(MAINS_TEST_PIN, INPUT);
+  pinMode(MAINS_TEST_PIN, INPUT_PULLUP);
   sensorState.batteryPower = 0;
 
   EEPROM.begin(EEPROM_SIZE);
