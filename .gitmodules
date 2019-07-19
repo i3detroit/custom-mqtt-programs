@@ -1,0 +1,30 @@
+[submodule "lib/Adafruit_BME280_Library"]
+	path = lib/Adafruit_BME280_Library
+	url = git@github.com:adafruit/Adafruit_BME280_Library.git
+[submodule "lib/BH1750"]
+	path = lib/BH1750
+	url = git@github.com:claws/BH1750.git
+[submodule "lib/SparkFun_APDS9301_Library"]
+	path = lib/SparkFun_APDS9301_Library
+	url = git@github.com:sparkfun/SparkFun_APDS9301_Library.git
+[submodule "lib/u8g2"]
+	path = lib/u8g2
+	url = git@github.com:olikraus/u8g2.git
+[submodule "lib/Adafruit-MCP23017-Arduino-Library"]
+	path = lib/Adafruit-MCP23017-Arduino-Library
+	url = git@github.com:adafruit/Adafruit-MCP23017-Arduino-Library.git
+[submodule "lib/mqtt-wrapper"]
+	path = lib/mqtt-wrapper
+	url = git@github.com:i3detroit/mqtt-wrapper.git
+[submodule "lib/SparkFun_BME280_Arduino_Library"]
+	path = lib/SparkFun_BME280_Arduino_Library
+	url = git@github.com:sparkfun/SparkFun_BME280_Arduino_Library.git
+[submodule "lib/Adafruit_NeoPixel"]
+	path = lib/Adafruit_NeoPixel
+	url = git@github.com:adafruit/Adafruit_NeoPixel.git
+[submodule "lib/pubsubclient"]
+	path = lib/pubsubclient
+	url = git@github.com:knolleary/pubsubclient.git
+[submodule "lib/SparkFun_CCS811_Arduino_Library"]
+	path = lib/SparkFun_CCS811_Arduino_Library
+	url = git@github.com:sparkfun/SparkFun_CCS811_Arduino_Library.git
