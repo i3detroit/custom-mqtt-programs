@@ -272,9 +272,12 @@ void reportControlState(PubSubClient *client, bool force) {
 
 void reportTelemetry(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/sensors", TOPIC);
-  sprintf(buf, "{\"powerSource\": \"%s\"", sensorState.batteryPower ? "battery" : "mains");
+  // Removed powerSource printing, publishing fails with it enabled as is
+  // sprintf(buf, "{\"powerSource\": \"%s\"", sensorState.batteryPower ? "battery" : "mains");
+  sprintf(buf, "{");
   if(sensorState.tempSensor) {
-    sprintf(buf + strlen(buf), ", \"temperature\":");
+    // sprintf(buf + strlen(buf), ", \"temperature\":");
+    sprintf(buf + strlen(buf), "\"temperature\":");
     dtostrf(sensorState.temp, 0, 2, buf + strlen(buf));
     sprintf(buf + strlen(buf), ", \"pressure\":");
     dtostrf(sensorState.pressure, 0, 1, buf + strlen(buf));
