@@ -321,7 +321,16 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       client->publish(topicBuf, buf);
       return;
     }
-    controlState.target = atoi((char*)payload);
+    char* endptr;
+    int newTarget = strtol((char*)payload, &endptr, 10);
+    if(*endptr != '\0' || endptr == (char*)payload) {
+      //didn't parse full string
+      sprintf(topicBuf, "stat/%s/error", TOPIC);
+      sprintf(buf, "target: non-parsable value '%.*s'", length, (char*)payload);
+      client->publish(topicBuf, buf);
+      return;
+    }
+    controlState.target = newTarget;
     if(controlState.target < MIN_TEMP) {
       controlState.target = MIN_TEMP;
     }
@@ -395,7 +404,15 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       client->publish(topicBuf, buf);
       return;
     }
-    uint8_t newSwing = atoi((char*)payload);
+    char* endptr;
+    int newSwing = strtol((char*)payload, &endptr, 10);
+    if(*endptr != '\0' || endptr == (char*)payload) {
+      //didn't parse full string
+      sprintf(topicBuf, "stat/%s/error", TOPIC);
+      sprintf(buf, "swing: non-parsable value '%.*s'", length, (char*)payload);
+      client->publish(topicBuf, buf);
+      return;
+    }
     if(newSwing <= 3 && newSwing >= 1) {
       controlState.swing = newSwing;
       EEPROM.write(EEPROM_SWING, controlState.swing);
@@ -415,7 +432,15 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
     char* endptr;
     Serial.println("called timeout");
     uint32_t timeout = strtoul((char*)payload, &endptr, 10);
-    if(timeout && payload[0] != '0' && (timeout == 0 || (MIN_TIMEOUT < timeout && timeout < MAX_TIMEOUT))) {
+    if(*endptr != '\0' || endptr == (char*)payload) {
+      //didn't parse full string
+      sprintf(topicBuf, "stat/%s/error", TOPIC);
+      sprintf(buf, "timeout: non-parsable value '%.*s'", length, (char*)payload);
+      client->publish(topicBuf, buf);
+      return;
+    }
+
+    if(timeout == 0 || (MIN_TIMEOUT < timeout && timeout < MAX_TIMEOUT)) {
       //Serial.println("Good timeout value");
       //Serial.println(timeout);
       //Valid number from payload
