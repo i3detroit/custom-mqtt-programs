@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 //#include <errno.h>
 #include <Arduino.h>
 #include <EEPROM.h>
@@ -322,7 +323,7 @@ void callback(char* topic, byte* payload, unsigned int length, PubSubClient *cli
       return;
     }
     char* endptr;
-    int newTarget = strtol((char*)payload, &endptr, 10);
+    int newTarget = (int)round(strtof((char*)payload, &endptr));
     if(*endptr != '\0' || endptr == (char*)payload) {
       //didn't parse full string
       sprintf(topicBuf, "stat/%s/error", TOPIC);
