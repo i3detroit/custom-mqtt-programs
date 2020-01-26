@@ -293,7 +293,7 @@ void reportTelemetry(PubSubClient *client) {
 
 void reportOutput(PubSubClient *client) {
   sprintf(topicBuf, "tele/%s/output", TOPIC);
-  sprintf(buf, "{\"state\": \"%s\", \"fan\": \"%s\"}", outputState.mode == OFF ? "off" : outputState.mode == HEAT ? "heat" : "cool", outputState.fan ? "on" : "off");
+  sprintf(buf, "{\"state\": \"%s\", \"fan\": \"%s\"}", outputState.mode == OFF ? "off" : outputState.mode == HEAT ? "heating" : "cooling", outputState.fan ? "on" : "off");
   client->publish(topicBuf, buf);
 }
 
