@@ -1,5 +1,0 @@
-(fp_lib_table
-  (lib (name wemos_d1_mini)(type KiCad)(uri "$(KIPRJMOD)/../../kicad-libs/d1_mini_kicad/library/wemos_d1_mini.pretty")(options "")(descr ""))
-  (lib (name mine)(type KiCad)(uri "$(KIPRJMOD)/../../kicad-libs/mine/mine.pretty")(options "")(descr ""))
-  (lib (name i3Logo)(type KiCad)(uri "$(KIPRJMOD)/../../kicad-libs/i3Logo")(options "")(descr ""))
-)
